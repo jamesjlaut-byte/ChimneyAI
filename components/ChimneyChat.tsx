@@ -22,6 +22,21 @@ export default function ChimneyChat({mode}:{mode:Mode}){
   const [manualVerification,setManualVerification]=useState<ManualVerification>(EMPTY_MANUAL);
   const [sourceFiles,setSourceFiles]=useState<SourceProvenanceRecord[]>([]);
   const inputRef=useRef<HTMLInputElement>(null);const starters=useMemo(()=>mode==="pro"?starterPro:starterHomeowner,[mode]);
+  const evidenceChecks=useMemo(()=>{
+    const identityFields=[proSource.manufacturer.trim(),proSource.model.trim()];
+    const identityCount=identityFields.filter(Boolean).length;
+    const hasSourceMaterial=attachments.length>0||sourceFiles.length>0;
+    const sourceIdentified=proSource.source_type!=="unknown"&&Boolean(proSource.source_title.trim());
+    const sourceAvailable=proSource.source_status==="uploaded"||proSource.source_status==="verified_external";
+    const manualFields=[manualVerification.verified_model,manualVerification.manual_title,manualVerification.relevant_pages];
+    const manualCount=manualFields.filter(x=>x.trim()).length;
+    return [
+      {label:"Appliance identity",state:identityCount===2?"documented":identityCount?"partial":"needed",detail:identityCount===2?`${proSource.manufacturer} · ${proSource.model}`:"Manufacturer and exact model"},
+      {label:"Source material",state:hasSourceMaterial?"documented":"needed",detail:hasSourceMaterial?`${attachments.length+sourceFiles.length} file record${attachments.length+sourceFiles.length===1?"":"s"}`:"Attach or restore exact source bytes"},
+      {label:"Controlling source",state:sourceIdentified&&sourceAvailable?"documented":sourceIdentified?"partial":"needed",detail:sourceIdentified?`${proSource.source_title} · ${proSource.source_status.replaceAll("_"," ")}`:"Identify type, title, and availability"},
+      {label:"Manual applicability",state:manualCount===3?"documented":manualCount?"partial":"needed",detail:manualCount===3?`${manualVerification.verified_model} · page ${manualVerification.relevant_pages}`:"Verify exact model, document, and page"}
+    ] as const;
+  },[attachments,sourceFiles,proSource,manualVerification]);
 
   async function addFiles(files:FileList|null){
     if(!files)return;setAttachmentStatus("Preparing attachment…");
@@ -51,6 +66,12 @@ export default function ChimneyChat({mode}:{mode:Mode}){
 
   return <div className={`chatShell ${mode}`}>
     {mode==="pro"&&<>
+      <section className="evidenceReadiness" aria-label="Professional evidence readiness">
+        <div className="evidenceReadinessHead"><b>Evidence readiness</b><span>No confidence score—only documented, partial, or needed evidence.</span></div>
+        <div className="evidenceChecks">{evidenceChecks.map(check=><div className={`evidenceCheck ${check.state}`} key={check.label}>
+          <small>{check.state}</small><b>{check.label}</b><span>{check.detail}</span>
+        </div>)}</div>
+      </section>
       <CloudWorkspace/>
       <CloudCaseBrowser onImported={(c)=>{setProSource(c.source);setManualVerification(c.manual);setMessages(c.messages.map(({role,content})=>({role,content})));setSourceFiles(c.source_files);if(c.technical_question)setText(c.technical_question);window.dispatchEvent(new Event("chimneyai:cases-changed"))}}/>
       <ProSourceDesk value={proSource} onChange={setProSource}/>
