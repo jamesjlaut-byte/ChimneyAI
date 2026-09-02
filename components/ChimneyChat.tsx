@@ -105,8 +105,13 @@ export default function ChimneyChat({mode}:{mode:Mode}){
     <ProCaseManager source={proSource} manual={manualVerification} messages={messages} sourceFiles={sourceFiles}
       onLoad={({source,manual,question,messages:loadedMessages,sourceFiles:loadedSourceFiles})=>{setProSource(source);setManualVerification(manual);setMessages(loadedMessages);setSourceFiles(loadedSourceFiles);if(question)setText(question)}}
       onClearChat={()=>setMessages([])}/>
-    <CloudWorkspace/>
-    <CloudCaseBrowser onImported={(c)=>{setProSource(c.source);setManualVerification(c.manual);setMessages(c.messages.map(({role,content})=>({role,content})));setSourceFiles(c.source_files);if(c.technical_question)setText(c.technical_question);window.dispatchEvent(new Event("chimneyai:cases-changed"))}}/>
+    <details className="workspaceGroup cloudTools">
+      <summary><span>Cloud &amp; multi-device</span><small>optional sign-in, sync, and retrieval</small></summary>
+      <div className="workspaceGroupBody">
+        <CloudWorkspace/>
+        <CloudCaseBrowser onImported={(c)=>{setProSource(c.source);setManualVerification(c.manual);setMessages(c.messages.map(({role,content})=>({role,content})));setSourceFiles(c.source_files);if(c.technical_question)setText(c.technical_question);window.dispatchEvent(new Event("chimneyai:cases-changed"))}}/>
+      </div>
+    </details>
   </div>}
   </div>;
 }

@@ -21,9 +21,11 @@ export default function ProFieldTools(){
     return {sideEach:(hw-ow)/2,depth:hd};
   },[hearthW,hearthD,openingW]);
 
-  return <div className="fieldTools">
-    <ProCalculators/>
-    <details className="toolDrawer">
+  return <details className="workspaceGroup fieldTools">
+    <summary><span>Calculators &amp; measurement</span><small>field math and geometry helpers</small></summary>
+    <div className="workspaceGroupBody">
+      <ProCalculators/>
+      <details className="toolDrawer">
       <summary>Arch geometry · span / rise</summary>
       <div className="calcGrid archCalc">
         <label>Arch span / chord (in)<input value={span} onChange={e=>setSpan(e.target.value)} inputMode="decimal"/></label>
@@ -33,9 +35,9 @@ export default function ProFieldTools(){
         <b>Calculated segment radius:</b> {arch.radius.toFixed(2)} in · <b>arc length:</b> {arch.arc.toFixed(2)} in · <b>central angle:</b> {arch.angleDeg.toFixed(1)}°
         <p>Geometry aid only. Verify the field shape and measurement method before using this for fabrication or clearance analysis.</p>
       </div>}
-    </details>
+      </details>
 
-    <details className="toolDrawer">
+      <details className="toolDrawer">
       <summary>Hearth measurement helper</summary>
       <div className="calcGrid hearthCalc">
         <label>Total hearth width (in)<input value={hearthW} onChange={e=>setHearthW(e.target.value)} inputMode="decimal"/></label>
@@ -46,6 +48,7 @@ export default function ProFieldTools(){
         <b>Calculated side extension if centered:</b> {hearth.sideEach.toFixed(2)} in each side · <b>measured front depth entered:</b> {hearth.depth.toFixed(2)} in
         <p>This tool reports geometry only. It does not decide the required hearth extension. Required dimensions must come from the controlling appliance listing/manual and/or adopted requirements applicable to the installation.</p>
       </div>}
-    </details>
-  </div>;
+      </details>
+    </div>
+  </details>;
 }
