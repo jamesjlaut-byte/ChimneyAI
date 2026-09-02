@@ -11,7 +11,7 @@ import type {SourceProvenanceRecord} from "@/lib/source-provenance";
 import CloudWorkspace from "@/components/CloudWorkspace";
 import CloudCaseBrowser from "@/components/CloudCaseBrowser";
 
-type Mode="homeowner"|"pro"; type Msg={role:"user"|"assistant";content:string};
+type Mode="homeowner"|"pro"; type Msg={role:"user"|"assistant";content:string;kind?:"analysis"|"system_error"};
 const starterHomeowner=["Explain this inspection report to me.","What does this repair recommendation mean?","What should I ask before hiring a chimney sweep?","Can you explain what you can see in a fireplace photo?"];
 const starterPro=["Help me write objective report language.","Check a fireplace opening-to-flue ratio.","Second-look these inspection photos.","Help me structure a manufacturer-manual verification."];
 
@@ -63,8 +63,8 @@ export default function ChimneyChat({mode}:{mode:Mode}){
         manual_verification:mode==="pro"?manualVerification:undefined
       })});
     const body=await res.json().catch(()=>({}));setBusy(false);
-    if(!res.ok||!body.ok){setMessages([...next,{role:"assistant",content:body.error==="openai_not_configured"?"ChimneyAI is not connected to the model yet. Add the server API key to enable live answers.":"I couldn't complete that request right now."}]);return;}
-    setMessages([...next,{role:"assistant",content:body.text}]);
+    if(!res.ok||!body.ok){setMessages([...next,{role:"assistant",kind:"system_error",content:body.error==="openai_not_configured"?"ChimneyAI is not connected to the model yet. Add the server API key to enable live answers.":"I couldn't complete that request right now."}]);return;}
+    setMessages([...next,{role:"assistant",kind:"analysis",content:body.text}]);
   }
 
   return <div className={`chatShell ${mode}`}>
@@ -89,8 +89,8 @@ export default function ChimneyChat({mode}:{mode:Mode}){
     {messages.length===0&&<div className="welcomePanel"><div className="aiOrb">AI</div><h2>{mode==="pro"?"What are you working on?":"How can I help with your chimney or fireplace?"}</h2>
       <p>{mode==="pro"?"Upload field photos or report text, run calculations, and ask technical/documentation questions.":"Upload an inspection report or photo and ChimneyAI can help explain what it says or what is visibly shown."}</p>
       <div className="starterGrid">{starters.map(x=><button key={x} type="button" onClick={()=>send(x)}>{x}</button>)}</div></div>}
-    <div className="messages">{messages.map((m,i)=><div key={i} className={`message ${m.role}`}><div className="messageRole">{m.role==="user"?"You":"ChimneyAI"}</div><div className="messageText">{m.content}</div></div>)}
-      {busy&&<div className="message assistant"><div className="messageRole">ChimneyAI</div><div className="typing">Analyzing…</div></div>}</div>
+    <div className="messages" aria-live="polite" aria-busy={busy}>{messages.map((m,i)=><div key={i} className={`message ${m.role}`}><div className="messageRole">{m.role==="user"?"You":"ChimneyAI"}</div>{mode==="pro"&&m.role==="assistant"&&m.kind!=="system_error"&&<div className="professionalReviewFlag">AI analysis · technician review required</div>}<div className="messageText">{m.content}</div></div>)}
+      {busy&&<div className="message assistant"><div className="messageRole">ChimneyAI</div>{mode==="pro"&&<div className="professionalReviewFlag">Building evidence-aware analysis</div>}<div className="typing">Analyzing…</div></div>}</div>
     <div className="composer">
       {attachments.length>0&&<div className="attachmentTray">{attachments.map((a,i)=><div className="attachmentChip" key={`${a.name}-${i}`}><span>{a.kind==="image"?"PHOTO":"DOC"} · {a.name} · {a.sha256.slice(0,10)}…</span><button onClick={()=>setAttachments(attachments.filter((_,x)=>x!==i))}>×</button></div>)}</div>}
       {attachmentStatus&&<div className="attachmentStatus">{attachmentStatus}</div>}

@@ -27,5 +27,12 @@ SOURCE-DISCIPLINE RULES:
 - Do not treat a listing label as a complete substitute for the installation manual.
 - Do not treat a generic code/standard concept as a substitute for a product-specific listing/manufacturer requirement.
 - If source hierarchy conflicts, identify the conflict rather than choosing a convenient answer.
+
+PRO ANSWER TRACEABILITY:
+- For substantive technical, source, manual, photo, calculation, or report-language answers, end with a compact "Evidence trail" section.
+- In that section, identify: (1) evidence actually supplied or observed, (2) controlling source material actually available, (3) important facts not verified, and (4) the technician's next verification step.
+- Do not pad the section with generic disclaimers. Make each item specific to this case.
+- If no controlling source content was supplied, say so directly instead of presenting general knowledge as a verified source requirement.
+- The evidence trail supports review; it is not an AI-issued conclusion, approval, or compliance determination.
 `;
 }
