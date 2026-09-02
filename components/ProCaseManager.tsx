@@ -1,6 +1,6 @@
 "use client";
 import {useEffect,useState} from "react";
-import {loadCases,saveCases,type ProCase,type SavedMessage} from "@/lib/pro-cases";
+import {loadCases,saveCases,upsertLocalCase,type ProCase,type SavedMessage} from "@/lib/pro-cases";
 import type {ProSourceState} from "@/components/ProSourceDesk";
 import type {ManualVerification} from "@/components/ManualVerificationCard";
 import type {SourceProvenanceRecord} from "@/lib/source-provenance";
@@ -22,6 +22,7 @@ export default function ProCaseManager({
   const [cases,setCases]=useState<ProCase[]>([]);
   const [title,setTitle]=useState("");
   const [notes,setNotes]=useState("");
+  const [editingId,setEditingId]=useState<string|null>(null);
   const [syncing,setSyncing]=useState<string|null>(null);
   const [syncMessage,setSyncMessage]=useState("");
   useEffect(()=>{
@@ -31,26 +32,41 @@ export default function ProCaseManager({
     return()=>window.removeEventListener("chimneyai:cases-changed",refresh);
   },[]);
 
-  function persist(next:ProCase[]){setCases(next);saveCases(next)}
+  function persist(next:ProCase[]){
+    try{saveCases(next);setCases(next);return true}
+    catch(e){setSyncMessage(e instanceof Error?e.message:"Could not save browser case data.");return false}
+  }
 
   async function saveCurrent(){
     const now=new Date().toISOString();
     const manual_identity_hash=await hashManualIdentity({manufacturer:source.manufacturer,model:source.model,...manual});
     const savedMessages:SavedMessage[]=messages.map(m=>({...m,created_at:now}));
+    const existing=editingId?cases.find(c=>c.id===editingId):undefined;
     const c:ProCase={
-      id:crypto.randomUUID(),
+      id:existing?.id||crypto.randomUUID(),
       title:title.trim()||`${source.manufacturer||"Technical"} ${source.model||"case"}`.trim(),
-      created_at:now,updated_at:now,
+      created_at:existing?.created_at||now,updated_at:now,
       manufacturer:source.manufacturer,model:source.model,serial:source.serial,
       appliance_type:source.fuel_type,technical_question:source.technician_question,
       notes:notes.trim(),source,manual,manual_identity_hash,messages:savedMessages,
-      source_files:[...sourceFiles]
+      source_files:[...sourceFiles],cloud:existing?.cloud
     };
-    persist([c,...cases].slice(0,100));
-    setTitle("");setNotes("");
+    const next=editingId?upsertLocalCase(cases,c):[c,...cases].slice(0,100);
+    if(persist(next)){
+      setSyncMessage(editingId?"Loaded case updated in this browser.":"Case saved in this browser.");
+      setEditingId(null);setTitle("");setNotes("");
+    }
   }
 
-  function remove(id:string){persist(cases.filter(c=>c.id!==id))}
+  function remove(c:ProCase){
+    if(!window.confirm(`Delete “${c.title}” from this browser? This does not delete a separate cloud copy.`))return;
+    if(persist(cases.filter(x=>x.id!==c.id))&&editingId===c.id){setEditingId(null);setTitle("");setNotes("")}
+  }
+
+  function loadCase(c:ProCase){
+    setEditingId(c.id);setTitle(c.title);setNotes(c.notes);setSyncMessage("Case loaded. Save will update this browser copy.");
+    onLoad({source:c.source,manual:c.manual,question:c.technical_question,messages:c.messages.map(({role,content})=>({role,content})),sourceFiles:c.source_files});
+  }
 
   async function syncCloud(c:ProCase){
     setSyncing(c.id);setSyncMessage("");
@@ -129,7 +145,7 @@ export default function ProCaseManager({
       <div className="saveCaseGrid">
         <input value={title} onChange={e=>setTitle(e.target.value)} placeholder="Case title — e.g. Majestic SB100 manual research"/>
         <textarea value={notes} onChange={e=>setNotes(e.target.value)} rows={2} placeholder="Private case notes / field context"/>
-        <button type="button" onClick={saveCurrent}>Save case + conversation + sources</button>
+        <div className="saveCaseActions"><button type="button" onClick={saveCurrent}>{editingId?"Update loaded case":"Save new case"}</button>{editingId&&<button type="button" className="cancelCaseEdit" onClick={()=>{setEditingId(null);setTitle("");setNotes("");setSyncMessage("Update canceled.")}}>Cancel</button>}</div>
       </div>
       {cases.length===0?<p className="emptyCases">No saved cases yet.</p>:
       <div className="caseList">{cases.map(c=><div className="caseRow" key={c.id}>
@@ -140,14 +156,10 @@ export default function ProCaseManager({
           {c.manual_identity_hash&&<code>{c.manual_identity_hash.slice(0,18)}… metadata</code>}
         </div>
         <div className="caseActions">
-          <button type="button" onClick={()=>onLoad({
-            source:c.source,manual:c.manual,question:c.technical_question,
-            messages:c.messages.map(({role,content})=>({role,content})),
-            sourceFiles:c.source_files
-          })}>Load</button>
+          <button type="button" onClick={()=>loadCase(c)}>{editingId===c.id?"Loaded":"Load"}</button>
           <button type="button" onClick={()=>exportCase(c)}>Export</button>
           <button type="button" disabled={syncing===c.id} onClick={()=>syncCloud(c)}>{syncing===c.id?"Syncing…":"Sync cloud"}</button>
-          <button type="button" className="deleteCase" onClick={()=>remove(c.id)}>Delete</button>
+          <button type="button" className="deleteCase" onClick={()=>remove(c)}>Delete</button>
         </div>
       </div>)}</div>}
       {syncMessage&&<div className="caseSyncMessage">{syncMessage}</div>}
