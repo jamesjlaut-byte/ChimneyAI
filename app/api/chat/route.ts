@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import type {ResponseInputContent,ResponseInputItem} from "openai/resources/responses/responses";
 import {z} from "zod";
 import {promptForMode} from "@/lib/prompts";
 import {proSourceInstruction} from "@/lib/pro-source";
@@ -64,7 +65,13 @@ const Body=z.object({
 });
 
 export async function POST(req:Request){
-  const parsed=Body.safeParse(await req.json());
+  let requestBody:unknown;
+  try{
+    requestBody=await req.json();
+  }catch{
+    return Response.json({ok:false,error:"invalid_json"},{status:400});
+  }
+  const parsed=Body.safeParse(requestBody);
   if(!parsed.success)return Response.json({ok:false,error:"invalid_request"},{status:400});
   if(!process.env.OPENAI_API_KEY)return Response.json({ok:false,error:"openai_not_configured"},{status:503});
 
@@ -73,9 +80,9 @@ export async function POST(req:Request){
   const attachments=parsed.data.attachments||[];
   const sourceManifest=parsed.data.source_manifest||[];
 
-  const input:any[]=[];
+  const input:ResponseInputItem[]=[];
   parsed.data.messages.forEach((m,index)=>{
-    const content:any[]=[{type:"input_text",text:m.content}];
+    const content:ResponseInputContent[]=[{type:"input_text",text:m.content}];
     if(index===parsed.data.messages.length-1 && m.role==="user"){
       for(const a of attachments){
         if(a.kind==="image"&&a.data_url)content.push({type:"input_image",image_url:a.data_url,detail:"high"});
@@ -118,7 +125,8 @@ Treat this as technician-entered research metadata, not independent proof.`:""),
       input
     });
     return Response.json({ok:true,text:response.output_text||"I could not produce a response."});
-  }catch(error:any){
-    return Response.json({ok:false,error:"model_request_failed",detail:error?.message||"Unknown model error"},{status:500});
+  }catch(error:unknown){
+    console.error("ChimneyAI model request failed",error instanceof Error?error.message:"Unknown model error");
+    return Response.json({ok:false,error:"model_request_failed"},{status:500});
   }
 }
