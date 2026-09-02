@@ -54,7 +54,8 @@ export default function ChimneyChat({mode}:{mode:Mode}){
     const userText=cleaned||`Please review the attached ${attachments.length===1?"file":"files"}.`;
     const next=[...messages,{role:"user" as const,content:userText}];setMessages(next);setText("");setBusy(true);
     const currentAttachments=attachments;setAttachments([]);
-    const res=await fetch("/api/chat",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({
+    try{
+      const res=await fetch("/api/chat",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({
         mode,messages:next,
         attachments:currentAttachments.map(({original_blob,...a})=>a),
         source_manifest:mode==="pro"?sourceFiles.map(({
@@ -63,9 +64,21 @@ export default function ChimneyChat({mode}:{mode:Mode}){
         pro_source:mode==="pro"?proSource:undefined,
         manual_verification:mode==="pro"?manualVerification:undefined
       })});
-    const body=await res.json().catch(()=>({}));setBusy(false);
-    if(!res.ok||!body.ok){setMessages([...next,{role:"assistant",kind:"system_error",content:body.error==="openai_not_configured"?"ChimneyAI is not connected to the model yet. Add the server API key to enable live answers.":"I couldn't complete that request right now."}]);return;}
-    setMessages([...next,{role:"assistant",kind:"analysis",content:body.text}]);
+      const body:{ok?:boolean;error?:string;text?:string}=await res.json().catch(()=>({}));
+      if(!res.ok||!body.ok){
+        setAttachments(current=>current.length?current:currentAttachments);
+        setText(current=>current||cleaned);
+        setMessages([...next,{role:"assistant",kind:"system_error",content:body.error==="openai_not_configured"?"ChimneyAI is not connected to the model yet. Add the server API key to enable live answers.":"I couldn't complete that request. Your attachments are still available—please try again."}]);
+        return;
+      }
+      setMessages([...next,{role:"assistant",kind:"analysis",content:body.text||"I could not produce a response."}]);
+    }catch{
+      setAttachments(current=>current.length?current:currentAttachments);
+      setText(current=>current||cleaned);
+      setMessages([...next,{role:"assistant",kind:"system_error",content:"ChimneyAI could not reach the service. Your attachments are still available—check your connection and try again."}]);
+    }finally{
+      setBusy(false);
+    }
   }
 
   return <div className={`chatExperience ${mode}`}><div className={`chatShell ${mode}`}>
