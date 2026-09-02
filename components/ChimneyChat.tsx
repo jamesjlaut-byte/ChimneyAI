@@ -60,8 +60,9 @@ export default function ChimneyChat({mode}:{mode:Mode}){
     const cleaned=value.trim();if((!cleaned&&attachments.length===0)||busy)return;
     const userText=cleaned||`Please review the attached ${attachments.length===1?"file":"files"}.`;
     const next=[...messages,{role:"user" as const,content:userText}],currentAttachments=attachments;
+    const requestMessages=next.slice(-40).map(({role,content})=>({role,content}));
     const requestBody=JSON.stringify({
-      mode,messages:next,
+      mode,messages:requestMessages,
       attachments:currentAttachments.map(({original_blob,...a})=>a),
       source_manifest:mode==="pro"?sourceFiles.map(({
         file_name,mime_type,byte_size,sha256,page_count,text_truncated,role,note,storage_status,integrity_status
@@ -93,7 +94,14 @@ export default function ChimneyChat({mode}:{mode:Mode}){
     }
   }
 
+  function startNewChat(){
+    const warning=mode==="pro"?"Start a new chat? Save the current Pro case first if you need this conversation.":"Start a new chat? This conversation will be cleared.";
+    if(!window.confirm(warning))return;
+    setMessages([]);setText("");setAttachments([]);setAttachmentStatus("");
+  }
+
   return <div className={`chatExperience ${mode}`}><div className={`chatShell ${mode}`}>
+    {messages.length>0&&<div className="chatSessionBar"><span>{messages.length} message{messages.length===1?"":"s"}{messages.length>40?" · recent context used for new answers":""}</span><button type="button" onClick={startNewChat}>New chat</button></div>}
     {messages.length===0&&<div className="welcomePanel"><div className="aiOrb"><Image src="/assets/chimneyai-app-icon.png" alt="ChimneyAI app" width={76} height={76}/></div><h2>{mode==="pro"?"What are you working on?":"How can I help with your chimney or fireplace?"}</h2>
       <p>{mode==="pro"?"Upload field photos or report text, run calculations, and ask technical/documentation questions.":"Upload an inspection report or photo and ChimneyAI can help explain what it says or what is visibly shown."}</p>
       <div className="starterGrid">{starters.map(x=><button key={x} type="button" onClick={()=>send(x)}>{x}</button>)}</div></div>}
