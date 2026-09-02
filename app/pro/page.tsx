@@ -12,6 +12,11 @@ export default function ProPage(){
       <div className="trustPill proTrust">Professional mode</div>
     </div>
 
+    <div className="proPositioning">
+      <b>Chat gives you an answer. ChimneyAI gives you the evidence trail.</b>
+      <span>Keep field documentation, exact sources, calculations, saved cases, and technical guardrails connected to the work.</span>
+    </div>
+
     <div className="proTools">
       <div><b>Technical research</b><span>Standards, manuals and source hierarchy</span></div>
       <div><b>Calculations</b><span>Field math with known/missing inputs separated</span></div>
