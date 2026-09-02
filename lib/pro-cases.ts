@@ -31,17 +31,87 @@ export type ProCase={
 
 const KEY="chimneyai_pro_cases_v4";
 
+const SOURCE_DEFAULTS:ProSourceState={
+  task:"general",manufacturer:"",model:"",serial:"",listing_mark:"",fuel_type:"",
+  source_type:"unknown",source_title:"",source_status:"not_available",technician_question:""
+};
+const MANUAL_DEFAULTS:ManualVerification={
+  manual_title:"",manual_part_number:"",manual_revision:"",effective_date:"",
+  official_url:"",verified_model:"",relevant_pages:"",verification_note:""
+};
+const TASKS=new Set<ProSourceState["task"]>(["general","label_scan","manual_review","source_check","report_language"]);
+const SOURCE_TYPES=new Set<ProSourceState["source_type"]>(["manufacturer_manual","listing_label","adopted_code","standard","field_measurement","unknown"]);
+const SOURCE_STATUSES=new Set<ProSourceState["source_status"]>(["uploaded","verified_external","reference_only","not_available"]);
+const SOURCE_ROLES=new Set<SourceProvenanceRecord["role"]>(["manual","listing_label","inspection_report","field_photo","other"]);
+
+function record(value:unknown):Record<string,unknown>{return value!==null&&typeof value==="object"&&!Array.isArray(value)?value as Record<string,unknown>:{};}
+function text(value:unknown){return typeof value==="string"?value:"";}
+
+export function normalizeProSource(value:unknown):ProSourceState{
+  const x=record(value);
+  return {
+    ...SOURCE_DEFAULTS,
+    task:TASKS.has(x.task as ProSourceState["task"])?x.task as ProSourceState["task"]:"general",
+    manufacturer:text(x.manufacturer),model:text(x.model),serial:text(x.serial),listing_mark:text(x.listing_mark),fuel_type:text(x.fuel_type),
+    source_type:SOURCE_TYPES.has(x.source_type as ProSourceState["source_type"])?x.source_type as ProSourceState["source_type"]:"unknown",
+    source_title:text(x.source_title),
+    source_status:SOURCE_STATUSES.has(x.source_status as ProSourceState["source_status"])?x.source_status as ProSourceState["source_status"]:"not_available",
+    technician_question:text(x.technician_question)
+  };
+}
+
+export function normalizeManual(value:unknown):ManualVerification{
+  const x=record(value);
+  return Object.fromEntries(Object.keys(MANUAL_DEFAULTS).map(key=>[key,text(x[key])])) as unknown as ManualVerification;
+}
+
+function normalizeCase(value:unknown):ProCase|null{
+  const x=record(value),id=text(x.id);
+  if(!id)return null;
+  const source=normalizeProSource(x.source),manual=normalizeManual(x.manual);
+  const created=text(x.created_at)||new Date().toISOString();
+  const messages=Array.isArray(x.messages)?x.messages.flatMap(item=>{
+    const m=record(item),role=m.role;
+    return (role==="user"||role==="assistant")&&text(m.content)?[{role,content:text(m.content),created_at:text(m.created_at)||created} satisfies SavedMessage]:[];
+  }):[];
+  const sourceFiles:SourceProvenanceRecord[]=Array.isArray(x.source_files)?x.source_files.flatMap(item=>{
+    const s=record(item),sha256=text(s.sha256);
+    if(!/^[a-f0-9]{64}$/i.test(sha256))return [];
+    const role=SOURCE_ROLES.has(s.role as SourceProvenanceRecord["role"])?s.role as SourceProvenanceRecord["role"]:"other";
+    return [{
+      attachment_id:text(s.attachment_id)||`legacy:${sha256}`,
+      file_name:text(s.file_name)||"Saved source file",mime_type:text(s.mime_type)||"application/octet-stream",
+      byte_size:typeof s.byte_size==="number"&&Number.isFinite(s.byte_size)?s.byte_size:0,
+      sha256,prepared_at:text(s.prepared_at)||created,
+      page_count:typeof s.page_count==="number"&&s.page_count>0?s.page_count:undefined,
+      text_truncated:Boolean(s.text_truncated),role,note:text(s.note),
+      storage_status:s.storage_status==="session_only"||s.storage_status==="persisted_browser"||s.storage_status==="missing"?s.storage_status:"missing",
+      persisted_at:text(s.persisted_at)||undefined,
+      integrity_status:s.integrity_status==="unchecked"||s.integrity_status==="verified"||s.integrity_status==="mismatch"||s.integrity_status==="missing"?s.integrity_status:"unchecked"
+    }];
+  }):[];
+  const cloudRecord=record(x.cloud);
+  const syncState=cloudRecord.sync_state;
+  const cloud:CloudCaseMeta={
+    remote_case_id:text(cloudRecord.remote_case_id)||undefined,
+    last_cloud_sync_at:text(cloudRecord.last_cloud_sync_at)||undefined,
+    cloud_updated_at:text(cloudRecord.cloud_updated_at)||undefined,
+    sync_state:syncState==="synced"||syncState==="local_newer"||syncState==="cloud_newer"||syncState==="conflict"||syncState==="never"?syncState:"never"
+  };
+  return {
+    id,title:text(x.title)||"Untitled Pro case",created_at:created,updated_at:text(x.updated_at)||created,
+    manufacturer:text(x.manufacturer)||source.manufacturer,model:text(x.model)||source.model,serial:text(x.serial)||source.serial,
+    appliance_type:text(x.appliance_type)||source.fuel_type,technical_question:text(x.technical_question)||source.technician_question,
+    notes:text(x.notes),source,manual,manual_identity_hash:text(x.manual_identity_hash)||undefined,messages,source_files:sourceFiles,cloud
+  };
+}
+
 export function loadCases():ProCase[]{
   if(typeof window==="undefined")return [];
   try{
     const x=JSON.parse(localStorage.getItem(KEY)||"[]");
     if(!Array.isArray(x))return [];
-    return x.map((c:any)=>({
-      ...c,
-      source_files:Array.isArray(c.source_files)?c.source_files:[],
-      messages:Array.isArray(c.messages)?c.messages:[],
-      cloud:c.cloud||{sync_state:"never"}
-    }));
+    return x.map(normalizeCase).filter((c):c is ProCase=>c!==null);
   }catch{return []}
 }
 

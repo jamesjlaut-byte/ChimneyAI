@@ -1,4 +1,4 @@
-import type {ProCase} from "@/lib/pro-cases";
+import {normalizeManual,normalizeProSource,type ProCase} from "@/lib/pro-cases";
 import type {SourceProvenanceRecord} from "@/lib/source-provenance";
 import {getBrowserSupabase,hasSupabaseConfig} from "@/lib/supabase-client";
 import {getStoredSourceFile,putStoredSourceFile} from "@/lib/source-file-store";
@@ -211,8 +211,8 @@ export async function fetchCloudCase(remoteCaseId:string):Promise<ProCase>{
     appliance_type:c.appliance_type||"",
     technical_question:c.technical_question||"",
     notes:c.notes||"",
-    source:c.source_json||{},
-    manual:c.manual_json||{},
+    source:normalizeProSource(c.source_json),
+    manual:normalizeManual(c.manual_json),
     manual_identity_hash:c.manual_identity_hash||undefined,
     messages:Array.isArray(c.conversation_json)?c.conversation_json:[],
     source_files:sourceFiles,
