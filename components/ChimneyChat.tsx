@@ -97,16 +97,16 @@ export default function ChimneyChat({mode}:{mode:Mode}){
         <small>{check.state}</small><b>{check.label}</b><span>{check.detail}</span>
       </div>)}</div>
     </section>
-    <CloudWorkspace/>
-    <CloudCaseBrowser onImported={(c)=>{setProSource(c.source);setManualVerification(c.manual);setMessages(c.messages.map(({role,content})=>({role,content})));setSourceFiles(c.source_files);if(c.technical_question)setText(c.technical_question);window.dispatchEvent(new Event("chimneyai:cases-changed"))}}/>
     <ProSourceDesk value={proSource} onChange={setProSource}/>
     <ManualFinder manufacturer={proSource.manufacturer} model={proSource.model} onPrepareQuestion={setText}/>
     <ManualVerificationCard value={manualVerification} onChange={setManualVerification} manufacturer={proSource.manufacturer} model={proSource.model}/>
     <SourceManifest attachments={attachments} records={sourceFiles} onChange={setSourceFiles}/>
+    <ProFieldTools/>
     <ProCaseManager source={proSource} manual={manualVerification} messages={messages} sourceFiles={sourceFiles}
       onLoad={({source,manual,question,messages:loadedMessages,sourceFiles:loadedSourceFiles})=>{setProSource(source);setManualVerification(manual);setMessages(loadedMessages);setSourceFiles(loadedSourceFiles);if(question)setText(question)}}
       onClearChat={()=>setMessages([])}/>
-    <ProFieldTools/>
+    <CloudWorkspace/>
+    <CloudCaseBrowser onImported={(c)=>{setProSource(c.source);setManualVerification(c.manual);setMessages(c.messages.map(({role,content})=>({role,content})));setSourceFiles(c.source_files);if(c.technical_question)setText(c.technical_question);window.dispatchEvent(new Event("chimneyai:cases-changed"))}}/>
   </div>}
   </div>;
 }

@@ -1,6 +1,6 @@
 import "./globals.css";
-import Link from "next/link";
 import type {Metadata} from "next";
+import AudienceNav from "@/components/AudienceNav";
 
 export const metadata:Metadata={
   title:"ChimneyAI",
@@ -10,7 +10,7 @@ export const metadata:Metadata={
 export default function RootLayout({children}:{children:React.ReactNode}){
   return <html lang="en"><body>
     <header className="topbar">
-      <nav><Link href="/homeowner">Homeowners</Link><Link href="/pro">Pros</Link></nav>
+      <AudienceNav/>
     </header>
     {children}
   </body></html>;

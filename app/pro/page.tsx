@@ -1,11 +1,12 @@
 import Image from "next/image";
+import Link from "next/link";
 import ChimneyChat from "@/components/ChimneyChat";
 
 export default function ProPage(){
   return <main className="appPage proPage">
     <div className="modeHeader">
       <div className="modeIdentity">
-        <Image className="modeLogo" src="/assets/chimneyai-official-logo.png" alt="ChimneyAI" width={220} height={220} priority/>
+        <Link className="modeLogoLink" href="/" aria-label="Back to ChimneyAI home"><Image className="modeLogo" src="/assets/chimneyai-official-logo.png" alt="ChimneyAI" width={220} height={220} priority/></Link>
         <div><div className="eyebrow">CHIMNEYAI PRO</div><h1>Technical assistant for chimney professionals.</h1>
         <p>Separate observed facts, calculations, source requirements and professional interpretation.</p></div>
       </div>
