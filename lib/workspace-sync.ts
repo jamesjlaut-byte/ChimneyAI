@@ -23,6 +23,10 @@ export type CloudCaseSummary={
   created_at:string;
   source_count:number;
 };
+export type CloudCaseRevisionSummary={id:string;revision_reason:string|null;created_at:string};
+
+function record(value:unknown):Record<string,unknown>{return value!==null&&typeof value==="object"&&!Array.isArray(value)?value as Record<string,unknown>:{};}
+function text(value:unknown){return typeof value==="string"?value:"";}
 
 export function getSyncMode():SyncMode{
   if(!hasSupabaseConfig())return "browser_only";
@@ -160,17 +164,15 @@ export async function listCloudCases():Promise<CloudCaseSummary[]>{
     .order("updated_at",{ascending:false})
     .limit(100);
   if(error)throw error;
-  return (data||[]).map((r:any)=>({
-    id:r.id,
-    client_case_id:r.client_case_id,
-    title:r.title,
-    manufacturer:r.manufacturer,
-    model:r.model,
-    serial:r.serial,
-    updated_at:r.updated_at,
-    created_at:r.created_at,
-    source_count:Array.isArray(r.pro_case_sources)?Number(r.pro_case_sources[0]?.count||0):0
-  }));
+  return ((data||[]) as unknown[]).map(row=>{
+    const r=record(row),sourceRows=Array.isArray(r.pro_case_sources)?r.pro_case_sources:[];
+    const countRecord=record(sourceRows[0]);
+    return {
+      id:text(r.id),client_case_id:text(r.client_case_id),title:text(r.title)||"Untitled cloud case",
+      manufacturer:text(r.manufacturer)||null,model:text(r.model)||null,serial:text(r.serial)||null,
+      updated_at:text(r.updated_at),created_at:text(r.created_at),source_count:Number(countRecord.count||0)
+    };
+  });
 }
 
 export async function fetchCloudCase(remoteCaseId:string):Promise<ProCase>{
@@ -184,21 +186,16 @@ export async function fetchCloudCase(remoteCaseId:string):Promise<ProCase>{
     .order("created_at",{ascending:true});
   if(sourceError)throw sourceError;
 
-  const sourceFiles:SourceProvenanceRecord[]=(sources||[]).map((s:any)=>({
-    attachment_id:`cloud:${s.id}`,
-    file_name:s.file_name,
-    mime_type:s.mime_type,
-    byte_size:Number(s.byte_size),
-    sha256:s.sha256,
-    prepared_at:s.created_at,
-    page_count:s.page_count||undefined,
-    text_truncated:Boolean(s.text_truncated),
-    role:s.source_role,
-    note:s.technician_note||"",
-    storage_status:s.storage_path?"missing":"missing",
-    integrity_status:"unchecked",
-    persisted_at:undefined
-  }));
+  const sourceFiles:SourceProvenanceRecord[]=((sources||[]) as unknown[]).map(row=>{
+    const s=record(row);
+    return {
+      attachment_id:`cloud:${text(s.id)}`,file_name:text(s.file_name)||"Cloud source",mime_type:text(s.mime_type)||"application/octet-stream",
+      byte_size:Number(s.byte_size||0),sha256:text(s.sha256),prepared_at:text(s.created_at),
+      page_count:typeof s.page_count==="number"?s.page_count:undefined,text_truncated:Boolean(s.text_truncated),
+      role:(s.source_role||"other") as SourceProvenanceRecord["role"],note:text(s.technician_note),
+      storage_status:"missing",integrity_status:"unchecked",persisted_at:undefined
+    };
+  });
 
   return {
     id:c.client_case_id,
@@ -270,5 +267,8 @@ export async function getCloudCaseRevisions(remoteCaseId:string){
     .order("created_at",{ascending:false})
     .limit(25);
   if(error)throw error;
-  return data||[];
+  return ((data||[]) as unknown[]).map(row=>{
+    const r=record(row);
+    return {id:text(r.id),revision_reason:text(r.revision_reason)||null,created_at:text(r.created_at)};
+  });
 }

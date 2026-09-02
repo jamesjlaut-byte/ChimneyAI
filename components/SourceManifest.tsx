@@ -53,7 +53,7 @@ export default function SourceManifest({
       });
       update(a.sha256,{storage_status:"persisted_browser",persisted_at:new Date().toISOString(),integrity_status:"unchecked"});
       setStatus(`Saved exact source bytes for ${a.name} in this browser.`);
-    }catch(e:any){setStatus(e?.message||"Could not persist source file.");}
+    }catch(e:unknown){setStatus(e instanceof Error?e.message:"Could not persist source file.");}
     finally{setBusy(null)}
   }
 
@@ -91,7 +91,7 @@ export default function SourceManifest({
       await persistRawFile(file,restoreHash);
       update(restoreHash,{storage_status:"persisted_browser",persisted_at:new Date().toISOString(),integrity_status:"verified"});
       setStatus("Exact source file restored and SHA-256 verified.");
-    }catch(e:any){setStatus(e?.message||"Restore failed.");}
+    }catch(e:unknown){setStatus(e instanceof Error?e.message:"Restore failed.");}
     finally{
       setBusy(null);setRestoreHash(null);
       if(restoreRef.current)restoreRef.current.value="";

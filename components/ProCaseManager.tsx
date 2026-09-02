@@ -86,8 +86,8 @@ export default function ProCaseManager({
         }:x);
         persist(next);
       }
-    }catch(e:any){
-      setSyncMessage(e?.message||"Cloud sync failed. Browser case was not deleted.");
+    }catch(e:unknown){
+      setSyncMessage(e instanceof Error?e.message:"Cloud sync failed. Browser case was not deleted.");
     }finally{setSyncing(null)}
   }
 

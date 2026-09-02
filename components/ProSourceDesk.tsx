@@ -25,14 +25,14 @@ export default function ProSourceDesk({value,onChange}:{value:ProSourceState;onC
         <span>ChimneyAI will not silently upgrade an unverified source.</span>
       </div>
       <div className="sourceGrid">
-        <label>Task<select value={value.task} onChange={e=>set("task",e.target.value as any)}>
+        <label>Task<select value={value.task} onChange={e=>set("task",e.target.value as ProSourceState["task"])}>
           <option value="general">General technical question</option>
           <option value="label_scan">UL / listing label scan</option>
           <option value="manual_review">Manufacturer manual review</option>
           <option value="source_check">Controlling-source check</option>
           <option value="report_language">Report language</option>
         </select></label>
-        <label>Source type<select value={value.source_type} onChange={e=>set("source_type",e.target.value as any)}>
+        <label>Source type<select value={value.source_type} onChange={e=>set("source_type",e.target.value as ProSourceState["source_type"])}>
           <option value="unknown">Unknown / not selected</option>
           <option value="manufacturer_manual">Manufacturer manual</option>
           <option value="listing_label">Listing / rating label</option>
@@ -40,7 +40,7 @@ export default function ProSourceDesk({value,onChange}:{value:ProSourceState;onC
           <option value="standard">Standard</option>
           <option value="field_measurement">Field measurement</option>
         </select></label>
-        <label>Source status<select value={value.source_status} onChange={e=>set("source_status",e.target.value as any)}>
+        <label>Source status<select value={value.source_status} onChange={e=>set("source_status",e.target.value as ProSourceState["source_status"])}>
           <option value="not_available">Not available</option>
           <option value="uploaded">Uploaded here</option>
           <option value="reference_only">Reference only</option>

@@ -1,6 +1,6 @@
 "use client";
 import {useMemo,useState} from "react";
-import {fetchCloudCase,getCloudCaseRevisions,listCloudCases,restoreCloudSourceToVault,type CloudCaseSummary} from "@/lib/workspace-sync";
+import {fetchCloudCase,getCloudCaseRevisions,listCloudCases,restoreCloudSourceToVault,type CloudCaseRevisionSummary,type CloudCaseSummary} from "@/lib/workspace-sync";
 import {compareCaseVersions,loadCases,saveCases,upsertLocalCase,type ProCase} from "@/lib/pro-cases";
 
 export default function CloudCaseBrowser({
@@ -11,7 +11,7 @@ export default function CloudCaseBrowser({
   const [message,setMessage]=useState("");
   const [loaded,setLoaded]=useState(false);
   const [selected,setSelected]=useState<ProCase|null>(null);
-  const [revisions,setRevisions]=useState<any[]>([]);
+  const [revisions,setRevisions]=useState<CloudCaseRevisionSummary[]>([]);
   const locals=useMemo(()=>loadCases(),[loaded,selected]);
 
   async function refresh(){
@@ -20,7 +20,7 @@ export default function CloudCaseBrowser({
       const data=await listCloudCases();
       setRows(data);setLoaded(true);
       setMessage(data.length?`Loaded ${data.length} cloud case${data.length===1?"":"s"}.`:"No cloud cases found.");
-    }catch(e:any){setMessage(e?.message||"Could not load cloud cases.");}
+    }catch(e:unknown){setMessage(e instanceof Error?e.message:"Could not load cloud cases.");}
     finally{setBusy(null)}
   }
 
@@ -30,7 +30,7 @@ export default function CloudCaseBrowser({
       const c=await fetchCloudCase(row.id);
       setSelected(c);
       setRevisions(await getCloudCaseRevisions(row.id));
-    }catch(e:any){setMessage(e?.message||"Could not load cloud case.");}
+    }catch(e:unknown){setMessage(e instanceof Error?e.message:"Could not load cloud case.");}
     finally{setBusy(null)}
   }
 
@@ -70,7 +70,7 @@ export default function CloudCaseBrowser({
         ...c,
         source_files:c.source_files.map(s=>s.sha256===sha?{...s,storage_status:"persisted_browser",integrity_status:"verified",persisted_at:new Date().toISOString()}:s)
       });
-    }catch(e:any){setMessage(e?.message||"Could not restore cloud source.");}
+    }catch(e:unknown){setMessage(e instanceof Error?e.message:"Could not restore cloud source.");}
     finally{setBusy(null)}
   }
 
