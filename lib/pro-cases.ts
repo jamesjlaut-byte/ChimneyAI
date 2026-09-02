@@ -116,7 +116,9 @@ export function loadCases():ProCase[]{
 }
 
 export function saveCases(cases:ProCase[]){
-  if(typeof window!=="undefined")localStorage.setItem(KEY,JSON.stringify(cases));
+  if(typeof window==="undefined")return;
+  try{localStorage.setItem(KEY,JSON.stringify(cases))}
+  catch{throw new Error("Browser storage is full or unavailable. Export important cases, then remove unneeded local data.")}
 }
 
 export function compareCaseVersions(localCase:ProCase,cloudUpdatedAt?:string|null){

@@ -63,21 +63,31 @@ export default function SourceManifest({
       const result=await verifyStoredSourceFile(hash);
       update(hash,{integrity_status:!result.exists?"missing":result.match?"verified":"mismatch",storage_status:result.exists?"persisted_browser":"missing"});
       setStatus(!result.exists?"Stored file is missing.":result.match?"Stored bytes match the recorded SHA-256.":"WARNING: stored bytes do not match the recorded SHA-256.");
-    }finally{setBusy(null)}
+    }catch(e:unknown){setStatus(e instanceof Error?e.message:"Could not verify the stored source file.");}
+    finally{setBusy(null)}
   }
 
   async function download(hash:string){
-    const stored=await getStoredSourceFile(hash);
-    if(!stored){setStatus("Stored source file not found in this browser.");return}
-    const url=URL.createObjectURL(stored.blob);
-    const a=document.createElement("a");a.href=url;a.download=stored.name;a.click();
-    setTimeout(()=>URL.revokeObjectURL(url),1000);
+    setBusy(hash);setStatus("");
+    try{
+      const stored=await getStoredSourceFile(hash);
+      if(!stored){setStatus("Stored source file not found in this browser.");return}
+      const url=URL.createObjectURL(stored.blob);
+      const a=document.createElement("a");a.href=url;a.download=stored.name;a.click();
+      setTimeout(()=>URL.revokeObjectURL(url),1000);
+    }catch(e:unknown){setStatus(e instanceof Error?e.message:"Could not open the stored source file.");}
+    finally{setBusy(null)}
   }
 
   async function removeBytes(hash:string){
-    await deleteStoredSourceFile(hash);
-    update(hash,{storage_status:"missing",integrity_status:"missing"});
-    setStatus("Persistent browser copy removed. Case provenance record retained.");
+    if(!window.confirm("Remove the stored file bytes from this browser? The case fingerprint record will remain."))return;
+    setBusy(hash);setStatus("");
+    try{
+      await deleteStoredSourceFile(hash);
+      update(hash,{storage_status:"missing",integrity_status:"missing"});
+      setStatus("Persistent browser copy removed. Case provenance record retained.");
+    }catch(e:unknown){setStatus(e instanceof Error?e.message:"Could not remove stored source bytes.");}
+    finally{setBusy(null)}
   }
 
   function requestRestore(hash:string){
@@ -141,9 +151,9 @@ export default function SourceManifest({
             <div className="vaultActions">
               {attached&&r.storage_status!=="persisted_browser"&&<button type="button" onClick={()=>persist(attached)}>Persist</button>}
               {r.storage_status==="persisted_browser"&&<>
-                <button type="button" onClick={()=>verify(r.sha256)}>Verify hash</button>
-                <button type="button" onClick={()=>download(r.sha256)}>Open/download</button>
-                <button type="button" onClick={()=>removeBytes(r.sha256)}>Remove bytes</button>
+                <button type="button" disabled={busy===r.sha256} onClick={()=>verify(r.sha256)}>Verify hash</button>
+                <button type="button" disabled={busy===r.sha256} onClick={()=>download(r.sha256)}>Open/download</button>
+                <button type="button" disabled={busy===r.sha256} onClick={()=>removeBytes(r.sha256)}>Remove bytes</button>
               </>}
               {r.storage_status!=="persisted_browser"&&!attached&&<button type="button" onClick={()=>requestRestore(r.sha256)}>Restore exact file</button>}
             </div>
