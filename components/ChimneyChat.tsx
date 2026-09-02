@@ -67,25 +67,7 @@ export default function ChimneyChat({mode}:{mode:Mode}){
     setMessages([...next,{role:"assistant",kind:"analysis",content:body.text}]);
   }
 
-  return <div className={`chatShell ${mode}`}>
-    {mode==="pro"&&<>
-      <section className="evidenceReadiness" aria-label="Professional evidence readiness">
-        <div className="evidenceReadinessHead"><b>Evidence readiness</b><span>No confidence score—only documented, partial, or needed evidence.</span></div>
-        <div className="evidenceChecks">{evidenceChecks.map(check=><div className={`evidenceCheck ${check.state}`} key={check.label}>
-          <small>{check.state}</small><b>{check.label}</b><span>{check.detail}</span>
-        </div>)}</div>
-      </section>
-      <CloudWorkspace/>
-      <CloudCaseBrowser onImported={(c)=>{setProSource(c.source);setManualVerification(c.manual);setMessages(c.messages.map(({role,content})=>({role,content})));setSourceFiles(c.source_files);if(c.technical_question)setText(c.technical_question);window.dispatchEvent(new Event("chimneyai:cases-changed"))}}/>
-      <ProSourceDesk value={proSource} onChange={setProSource}/>
-      <ManualFinder manufacturer={proSource.manufacturer} model={proSource.model} onPrepareQuestion={setText}/>
-      <ManualVerificationCard value={manualVerification} onChange={setManualVerification} manufacturer={proSource.manufacturer} model={proSource.model}/>
-      <SourceManifest attachments={attachments} records={sourceFiles} onChange={setSourceFiles}/>
-      <ProCaseManager source={proSource} manual={manualVerification} messages={messages} sourceFiles={sourceFiles}
-        onLoad={({source,manual,question,messages:loadedMessages,sourceFiles:loadedSourceFiles})=>{setProSource(source);setManualVerification(manual);setMessages(loadedMessages);setSourceFiles(loadedSourceFiles);if(question)setText(question)}}
-        onClearChat={()=>setMessages([])}/>
-      <ProFieldTools/>
-    </>}
+  return <div className={`chatExperience ${mode}`}><div className={`chatShell ${mode}`}>
     {messages.length===0&&<div className="welcomePanel"><div className="aiOrb">AI</div><h2>{mode==="pro"?"What are you working on?":"How can I help with your chimney or fireplace?"}</h2>
       <p>{mode==="pro"?"Upload field photos or report text, run calculations, and ask technical/documentation questions.":"Upload an inspection report or photo and ChimneyAI can help explain what it says or what is visibly shown."}</p>
       <div className="starterGrid">{starters.map(x=><button key={x} type="button" onClick={()=>send(x)}>{x}</button>)}</div></div>}
@@ -106,5 +88,24 @@ export default function ChimneyChat({mode}:{mode:Mode}){
         <button className="sendBtn" onClick={()=>send()} disabled={busy||(!text.trim()&&attachments.length===0)}>Send</button></div>
       <div className="composerNote">{mode==="pro"?"Photo/document analysis supports professional judgment; verify controlling sources and field conditions.":"Uploads can be explained, but ChimneyAI cannot replace an onsite inspection or issue a safety clearance."}</div>
     </div>
+  </div>
+  {mode==="pro"&&<div className="proWorkspaceStack">
+    <section className="evidenceReadiness" aria-label="Professional evidence readiness">
+      <div className="evidenceReadinessHead"><b>Evidence readiness</b><span>No confidence score—only documented, partial, or needed evidence.</span></div>
+      <div className="evidenceChecks">{evidenceChecks.map(check=><div className={`evidenceCheck ${check.state}`} key={check.label}>
+        <small>{check.state}</small><b>{check.label}</b><span>{check.detail}</span>
+      </div>)}</div>
+    </section>
+    <CloudWorkspace/>
+    <CloudCaseBrowser onImported={(c)=>{setProSource(c.source);setManualVerification(c.manual);setMessages(c.messages.map(({role,content})=>({role,content})));setSourceFiles(c.source_files);if(c.technical_question)setText(c.technical_question);window.dispatchEvent(new Event("chimneyai:cases-changed"))}}/>
+    <ProSourceDesk value={proSource} onChange={setProSource}/>
+    <ManualFinder manufacturer={proSource.manufacturer} model={proSource.model} onPrepareQuestion={setText}/>
+    <ManualVerificationCard value={manualVerification} onChange={setManualVerification} manufacturer={proSource.manufacturer} model={proSource.model}/>
+    <SourceManifest attachments={attachments} records={sourceFiles} onChange={setSourceFiles}/>
+    <ProCaseManager source={proSource} manual={manualVerification} messages={messages} sourceFiles={sourceFiles}
+      onLoad={({source,manual,question,messages:loadedMessages,sourceFiles:loadedSourceFiles})=>{setProSource(source);setManualVerification(manual);setMessages(loadedMessages);setSourceFiles(loadedSourceFiles);if(question)setText(question)}}
+      onClearChat={()=>setMessages([])}/>
+    <ProFieldTools/>
+  </div>}
   </div>;
 }
