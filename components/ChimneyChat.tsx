@@ -1,4 +1,5 @@
 "use client";
+import Image from "next/image";
 import {useMemo,useRef,useState} from "react";
 import {prepareAttachment,type ChatAttachment} from "@/lib/client-attachments";
 import ProFieldTools from "@/components/ProFieldTools";
@@ -68,7 +69,7 @@ export default function ChimneyChat({mode}:{mode:Mode}){
   }
 
   return <div className={`chatExperience ${mode}`}><div className={`chatShell ${mode}`}>
-    {messages.length===0&&<div className="welcomePanel"><div className="aiOrb">AI</div><h2>{mode==="pro"?"What are you working on?":"How can I help with your chimney or fireplace?"}</h2>
+    {messages.length===0&&<div className="welcomePanel"><div className="aiOrb"><Image src="/assets/chimneyai-app-icon.png" alt="ChimneyAI app" width={76} height={76}/></div><h2>{mode==="pro"?"What are you working on?":"How can I help with your chimney or fireplace?"}</h2>
       <p>{mode==="pro"?"Upload field photos or report text, run calculations, and ask technical/documentation questions.":"Upload an inspection report or photo and ChimneyAI can help explain what it says or what is visibly shown."}</p>
       <div className="starterGrid">{starters.map(x=><button key={x} type="button" onClick={()=>send(x)}>{x}</button>)}</div></div>}
     <div className="messages" aria-live="polite" aria-busy={busy}>{messages.map((m,i)=><div key={i} className={`message ${m.role}`}><div className="messageRole">{m.role==="user"?"You":"ChimneyAI"}</div>{mode==="pro"&&m.role==="assistant"&&m.kind!=="system_error"&&<div className="professionalReviewFlag">AI analysis · technician review required</div>}<div className="messageText">{m.content}</div></div>)}
