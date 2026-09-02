@@ -70,7 +70,10 @@ export async function prepareAttachment(
       throw new Error("PDFs must be under 15 MB.");
     }
 
-    const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+    // The package's bundler entry wires the matching module worker through
+    // `new URL(..., import.meta.url)`, so Next.js emits a deployable worker
+    // asset without relying on the removed `disableWorker` option.
+    const pdfjs = await import("pdfjs-dist/webpack.mjs");
 
     const pdf = await pdfjs.getDocument({
       data: new Uint8Array(bytes),
@@ -84,7 +87,7 @@ export async function prepareAttachment(
       const textContent = await page.getTextContent();
 
       const pageText = textContent.items
-        .map((item: any) => ("str" in item ? item.str : ""))
+        .map((item) => ("str" in item ? item.str : ""))
         .join(" ");
 
       parts.push(`[Page ${pageNumber}]\n${pageText}`);
