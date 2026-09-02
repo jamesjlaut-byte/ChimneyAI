@@ -1,10 +1,14 @@
+import Image from "next/image";
 import ChimneyChat from "@/components/ChimneyChat";
 
 export default function ProPage(){
   return <main className="appPage proPage">
     <div className="modeHeader">
-      <div><div className="eyebrow">CHIMNEYAI PRO</div><h1>Technical assistant for chimney professionals.</h1>
+      <div className="modeIdentity">
+        <Image className="modeLogo" src="/assets/chimneyai-official-logo.png" alt="ChimneyAI" width={150} height={150}/>
+        <div><div className="eyebrow">CHIMNEYAI PRO</div><h1>Technical assistant for chimney professionals.</h1>
         <p>Separate observed facts, calculations, source requirements and professional interpretation.</p></div>
+      </div>
       <div className="trustPill proTrust">Professional mode</div>
     </div>
 
