@@ -40,30 +40,42 @@ export default function ChimneyChat({mode}:{mode:Mode}){
   },[attachments,sourceFiles,proSource,manualVerification]);
 
   async function addFiles(files:FileList|null){
-    if(!files)return;setAttachmentStatus("Preparing attachment…");
-    try{
-      const next=[...attachments];
-      for(const f of Array.from(files).slice(0,6-next.length))next.push(await prepareAttachment(f));
-      setAttachments(next);setAttachmentStatus("");
-    }catch(e){setAttachmentStatus(e instanceof Error?e.message:"Could not prepare attachment.");}
+    if(!files)return;
+    const selected=Array.from(files),available=6-attachments.length;
+    if(available<=0){setAttachmentStatus("Remove an attachment before adding another. Maximum: 6.");return}
+    setAttachmentStatus(`Preparing ${Math.min(selected.length,available)} attachment${Math.min(selected.length,available)===1?"":"s"}…`);
+    const next=[...attachments],errors:string[]=[];
+    for(const f of selected.slice(0,available)){
+      try{next.push(await prepareAttachment(f))}
+      catch(e){errors.push(`${f.name}: ${e instanceof Error?e.message:"Could not prepare file."}`)}
+    }
+    if(selected.length>available)errors.push(`${selected.length-available} file${selected.length-available===1?" was":"s were"} skipped (maximum 6).`);
+    setAttachments(next);
+    const added=next.length-attachments.length;
+    setAttachmentStatus(errors.length?`${added?`${added} ready. `:""}${errors.join(" ")}`:`${added} attachment${added===1?"":"s"} ready.`);
     if(inputRef.current)inputRef.current.value="";
   }
 
   async function send(value=text){
     const cleaned=value.trim();if((!cleaned&&attachments.length===0)||busy)return;
     const userText=cleaned||`Please review the attached ${attachments.length===1?"file":"files"}.`;
-    const next=[...messages,{role:"user" as const,content:userText}];setMessages(next);setText("");setBusy(true);
-    const currentAttachments=attachments;setAttachments([]);
+    const next=[...messages,{role:"user" as const,content:userText}],currentAttachments=attachments;
+    const requestBody=JSON.stringify({
+      mode,messages:next,
+      attachments:currentAttachments.map(({original_blob,...a})=>a),
+      source_manifest:mode==="pro"?sourceFiles.map(({
+        file_name,mime_type,byte_size,sha256,page_count,text_truncated,role,note,storage_status,integrity_status
+      })=>({file_name,mime_type,byte_size,sha256,page_count,text_truncated,role,note,storage_status,integrity_status})):undefined,
+      pro_source:mode==="pro"?proSource:undefined,
+      manual_verification:mode==="pro"?manualVerification:undefined
+    });
+    if(new Blob([requestBody]).size>4_000_000){
+      setAttachmentStatus("This combined request is too large for production upload. Remove one or more photos, or send them separately.");
+      return;
+    }
+    setMessages(next);setText("");setBusy(true);setAttachments([]);setAttachmentStatus("");
     try{
-      const res=await fetch("/api/chat",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({
-        mode,messages:next,
-        attachments:currentAttachments.map(({original_blob,...a})=>a),
-        source_manifest:mode==="pro"?sourceFiles.map(({
-          file_name,mime_type,byte_size,sha256,page_count,text_truncated,role,note,storage_status,integrity_status
-        })=>({file_name,mime_type,byte_size,sha256,page_count,text_truncated,role,note,storage_status,integrity_status})):undefined,
-        pro_source:mode==="pro"?proSource:undefined,
-        manual_verification:mode==="pro"?manualVerification:undefined
-      })});
+      const res=await fetch("/api/chat",{method:"POST",headers:{"content-type":"application/json"},body:requestBody});
       const body:{ok?:boolean;error?:string;text?:string}=await res.json().catch(()=>({}));
       if(!res.ok||!body.ok){
         setAttachments(current=>current.length?current:currentAttachments);
@@ -88,7 +100,7 @@ export default function ChimneyChat({mode}:{mode:Mode}){
     <div className="messages" aria-live="polite" aria-busy={busy}>{messages.map((m,i)=><div key={i} className={`message ${m.role}`}><div className="messageRole">{m.role==="user"?"You":"ChimneyAI"}</div>{mode==="pro"&&m.role==="assistant"&&m.kind!=="system_error"&&<div className="professionalReviewFlag">AI analysis · technician review required</div>}<div className="messageText">{m.content}</div></div>)}
       {busy&&<div className="message assistant"><div className="messageRole">ChimneyAI</div>{mode==="pro"&&<div className="professionalReviewFlag">Building evidence-aware analysis</div>}<div className="typing">Analyzing…</div></div>}</div>
     <div className="composer">
-      {attachments.length>0&&<div className="attachmentTray">{attachments.map((a,i)=><div className="attachmentChip" key={`${a.name}-${i}`}><span>{a.kind==="image"?"PHOTO":"DOC"} · {a.name} · {a.sha256.slice(0,10)}…</span><button onClick={()=>setAttachments(attachments.filter((_,x)=>x!==i))}>×</button></div>)}</div>}
+      {attachments.length>0&&<div className="attachmentTray">{attachments.map((a,i)=><div className="attachmentChip" key={`${a.name}-${i}`}><span>{a.kind==="image"?"PHOTO":"DOC"} · {a.name}{a.page_count?` · ${a.page_count} pages`:""}{a.text_truncated?" · partial text":""} · {a.sha256.slice(0,10)}…</span><button type="button" aria-label={`Remove ${a.name}`} onClick={()=>setAttachments(attachments.filter((_,x)=>x!==i))}>×</button></div>)}</div>}
       {attachmentStatus&&<div className="attachmentStatus">{attachmentStatus}</div>}
       {mode==="pro"&&attachments.some(a=>a.kind==="image")&&<div className="quickActions">
         <button type="button" onClick={()=>{setProSource({...proSource,task:"label_scan",source_type:"listing_label",source_status:"uploaded"});setText("Read this label carefully. Extract only legible manufacturer, model, serial, listing/standard markings, fuel/appliance information, and other visible installation data. Identify uncertain characters and tell me exactly what source/manual is needed next.");}}>Treat photo as label scan</button>

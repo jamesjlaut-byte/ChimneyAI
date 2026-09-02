@@ -13,6 +13,11 @@ export type ChatAttachment = {
   original_blob?: Blob;
 };
 
+const MAX_IMAGE_BYTES=3*1024*1024;
+const MAX_PDF_BYTES=15*1024*1024;
+const MAX_TEXT_BYTES=5*1024*1024;
+const SUPPORTED_IMAGE_TYPES=new Set(["image/jpeg","image/png","image/webp","image/gif"]);
+
 async function sha256(buffer: ArrayBuffer) {
   const digest = await crypto.subtle.digest("SHA-256", buffer);
 
@@ -35,6 +40,17 @@ function readDataUrl(file: File) {
 export async function prepareAttachment(
   file: File
 ): Promise<ChatAttachment> {
+  const lowerName=file.name.toLowerCase();
+  const isImage=file.type.startsWith("image/");
+  const isPdf=file.type==="application/pdf"||lowerName.endsWith(".pdf");
+  const isText=file.type.startsWith("text/")||/\.(txt|md|csv)$/i.test(file.name);
+
+  if(isImage&&!SUPPORTED_IMAGE_TYPES.has(file.type))throw new Error("Use a JPG, PNG, WEBP, or non-animated GIF image.");
+  if(isImage&&file.size>MAX_IMAGE_BYTES)throw new Error("Images must be 3 MB or smaller for reliable production upload.");
+  if(isPdf&&file.size>MAX_PDF_BYTES)throw new Error("PDFs must be 15 MB or smaller.");
+  if(isText&&file.size>MAX_TEXT_BYTES)throw new Error("Text files must be 5 MB or smaller.");
+  if(!isImage&&!isPdf&&!isText)throw new Error("Use a JPG, PNG, WEBP, GIF, PDF, TXT, MD, or CSV file.");
+
   const bytes = await file.arrayBuffer();
   const fileHash = await sha256(bytes);
 
@@ -50,11 +66,7 @@ export async function prepareAttachment(
     }),
   };
 
-  if (file.type.startsWith("image/")) {
-    if (file.size > 8 * 1024 * 1024) {
-      throw new Error("Images must be under 8 MB.");
-    }
-
+  if (isImage) {
     return {
       ...base,
       kind: "image",
@@ -63,13 +75,8 @@ export async function prepareAttachment(
   }
 
   if (
-    file.type === "application/pdf" ||
-    file.name.toLowerCase().endsWith(".pdf")
+    isPdf
   ) {
-    if (file.size > 15 * 1024 * 1024) {
-      throw new Error("PDFs must be under 15 MB.");
-    }
-
     // The package's bundler entry wires the matching module worker through
     // `new URL(..., import.meta.url)`, so Next.js emits a deployable worker
     // asset without relying on the removed `disableWorker` option.
@@ -119,8 +126,7 @@ export async function prepareAttachment(
   }
 
   if (
-    file.type.startsWith("text/") ||
-    /\.(txt|md|csv)$/i.test(file.name)
+    isText
   ) {
     let text = new TextDecoder().decode(bytes);
 
@@ -140,7 +146,5 @@ export async function prepareAttachment(
     };
   }
 
-  throw new Error(
-    "Use an image, PDF, TXT, MD, or CSV file."
-  );
+  throw new Error("Unsupported attachment.");
 }
