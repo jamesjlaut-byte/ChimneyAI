@@ -56,6 +56,9 @@ export default function ChimneyChat({mode}:{mode:Mode}){
     const res=await fetch("/api/chat",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({
         mode,messages:next,
         attachments:currentAttachments.map(({original_blob,...a})=>a),
+        source_manifest:mode==="pro"?sourceFiles.map(({
+          file_name,mime_type,byte_size,sha256,page_count,text_truncated,role,note,storage_status,integrity_status
+        })=>({file_name,mime_type,byte_size,sha256,page_count,text_truncated,role,note,storage_status,integrity_status})):undefined,
         pro_source:mode==="pro"?proSource:undefined,
         manual_verification:mode==="pro"?manualVerification:undefined
       })});

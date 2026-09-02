@@ -10,6 +10,18 @@ const Attachment=z.object({
   data_url:z.string().max(12_000_000).optional(),
   text:z.string().max(60_000).optional()
 });
+const SourceManifestRecord=z.object({
+  file_name:z.string().max(240),
+  mime_type:z.string().max(120),
+  byte_size:z.number().int().nonnegative(),
+  sha256:z.string().regex(/^[a-f0-9]{64}$/i),
+  page_count:z.number().int().positive().optional(),
+  text_truncated:z.boolean().optional(),
+  role:z.enum(["manual","listing_label","inspection_report","field_photo","other"]),
+  note:z.string().max(2000),
+  storage_status:z.enum(["session_only","persisted_browser","missing"]).optional(),
+  integrity_status:z.enum(["unchecked","verified","mismatch","missing"]).optional()
+});
 const Body=z.object({
   mode:z.enum(["homeowner","pro"]),
   messages:z.array(z.object({role:z.enum(["user","assistant"]),content:z.string().min(1).max(20000)})).min(1).max(40),
@@ -21,6 +33,7 @@ const Body=z.object({
     page_count:z.number().int().positive().optional(),
     text_truncated:z.boolean().optional()
   })).max(6).optional(),
+  source_manifest:z.array(SourceManifestRecord).max(30).optional(),
   context:z.object({
     appliance_type:z.string().max(200).optional(),manufacturer:z.string().max(200).optional(),
     model:z.string().max(200).optional(),inspection_level:z.string().max(100).optional(),
@@ -58,6 +71,7 @@ export async function POST(req:Request){
   const client=new OpenAI({apiKey:process.env.OPENAI_API_KEY});
   const context=parsed.data.context?`\n\nCURRENT OPTIONAL FIELD CONTEXT:\n${JSON.stringify(parsed.data.context,null,2)}`:"";
   const attachments=parsed.data.attachments||[];
+  const sourceManifest=parsed.data.source_manifest||[];
 
   const input:any[]=[];
   parsed.data.messages.forEach((m,index)=>{
@@ -80,11 +94,22 @@ ATTACHMENT RULES:
 - If an attachment includes a SHA-256 value, that hash identifies the exact uploaded bytes for provenance. It does not prove the document is official, applicable, current, or authentic.
 - If extracted PDF text is marked truncated, do not claim the entire manual/report was searched.
 `:"";
+  const sourceManifestInstruction=sourceManifest.length?`
+CASE SOURCE MANIFEST (METADATA ONLY):
+${JSON.stringify(sourceManifest,null,2)}
+SOURCE MANIFEST RULES:
+- Use each record's role and technician note to understand why the file belongs to the case.
+- A SHA-256 value identifies exact bytes; it does not establish authenticity, authority, applicability, or current revision.
+- "verified" integrity means stored bytes matched the recorded hash. It does not mean the source requirement or installation was professionally verified.
+- A missing browser copy means the record exists but the exact bytes are unavailable to inspect now.
+- Do not claim to have reviewed file content unless that content is included in the current attachments.
+- Surface mismatched hashes, missing bytes, truncated text, and unresolved source applicability when relevant.
+`:"";
 
   try{
     const response=await client.responses.create({
       model:process.env.OPENAI_MODEL||"gpt-5-mini",
-      instructions:promptForMode(parsed.data.mode)+context+attachmentInstruction+
+      instructions:promptForMode(parsed.data.mode)+context+attachmentInstruction+sourceManifestInstruction+
         (parsed.data.mode==="pro"?proSourceInstruction(parsed.data.pro_source):"")+
         (parsed.data.mode==="pro"&&parsed.data.manual_verification?`
 MANUAL VERIFICATION RECORD:
