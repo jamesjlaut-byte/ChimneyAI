@@ -1,6 +1,7 @@
 import "./globals.css";
 import type {Metadata} from "next";
 import AudienceNav from "@/components/AudienceNav";
+import SiteFooter from "@/components/SiteFooter";
 
 export const metadata:Metadata={
   title:"ChimneyAI",
@@ -13,5 +14,6 @@ export default function RootLayout({children}:{children:React.ReactNode}){
       <AudienceNav/>
     </header>
     {children}
+    <SiteFooter/>
   </body></html>;
 }
