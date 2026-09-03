@@ -173,6 +173,8 @@ Scores: 10 is greatest impact/time saved/differentiation; effort 10 is hardest.
 
 Customer → property → system → inspection type → adaptive component runner, large field controls, visible offline/draft state, and minimal repeated entry.
 
+First increment: a compact Pro-workspace setup form creates and recovers a real browser-first inspection draft with technician, customer, property, chimney system, and inspection-scope context. It intentionally stops before component questions rather than presenting a placeholder inspection as complete.
+
 ### Phase 3 — Photo and findings workflow
 
 Photo records, categories, captions, component linkage, raw notes, AI suggestion review, confirm/reject/edit/request-view actions, and finding/recommendation traceability.

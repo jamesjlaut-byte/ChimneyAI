@@ -1,5 +1,6 @@
 "use client";
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import {useEffect,useMemo,useRef,useState} from "react";
 import {prepareAttachment,type ChatAttachment} from "@/lib/client-attachments";
 import ProFieldTools from "@/components/ProFieldTools";
@@ -18,6 +19,8 @@ import {defaultSourceRole} from "@/lib/default-source-role";
 import {markLastAttemptFailed,modelHistory,type ChatHistoryMessage} from "@/lib/chat-history";
 import {clearProDraft,isMeaningfulProDraft,loadProDraft,saveProDraft} from "@/lib/pro-draft";
 import {MAX_CASE_SOURCES} from "@/lib/case-limits";
+
+const InspectionSetup=dynamic(()=>import("@/components/InspectionSetup"),{ssr:false});
 
 type Mode="homeowner"|"pro"; type Msg=ChatHistoryMessage;
 const starterHomeowner=["Explain this inspection report to me.","What does this repair recommendation mean?","What should I ask before hiring a chimney sweep?","Can you explain what you can see in a fireplace photo?"];
@@ -244,6 +247,7 @@ export default function ChimneyChat({mode}:{mode:Mode}){
     </div>
   </div>
   {mode==="pro"&&<div className="proWorkspaceStack">
+    <InspectionSetup/>
     <section className="evidenceReadiness" aria-label="Professional evidence readiness">
       <div className="evidenceReadinessHead"><b>Evidence readiness</b><span>No confidence score—only documented, partial, or needed evidence.</span></div>
       <div className="evidenceChecks">{evidenceChecks.map(check=><div className={`evidenceCheck ${check.state}`} key={check.label}>
