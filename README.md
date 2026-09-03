@@ -1,4 +1,4 @@
-# ChimneyAI v39
+# ChimneyAI
 
 This is the first clean split after separating the business app into FlueFire.
 
@@ -18,8 +18,24 @@ This is the first clean split after separating the business app into FlueFire.
 ## Run
 1. Copy `.env.example` to `.env.local`
 2. Add `OPENAI_API_KEY`
-3. npm install
-4. npm run dev
+3. Run `npm install`
+4. Run `npm run dev`
+
+## Environment configuration
+
+Required for live Homeowner AI and Pro AI answers:
+
+- `OPENAI_API_KEY` — server-only OpenAI API key
+
+Optional:
+
+- `OPENAI_MODEL` — model override; defaults to `gpt-5-mini` when omitted
+- `NEXT_PUBLIC_SUPABASE_URL` — Supabase project URL for Cloud Workspace
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` — matching Supabase publishable/anonymous key
+
+The two Supabase variables must be supplied together. Without them, ChimneyAI remains in browser-first mode and local cases, source fingerprints, and the Browser Source File Vault continue to work. Apply the migrations in `supabase/migrations` before enabling cloud cases in production.
+
+`GET /api/health` reports `ready` or `degraded` configuration without returning secret values. A missing OpenAI key or a partial Supabase pair produces `degraded`; fully omitted optional Supabase configuration does not.
 
 FlueFire v29 is intentionally not copied into this project. It remains a separate application foundation.
 
