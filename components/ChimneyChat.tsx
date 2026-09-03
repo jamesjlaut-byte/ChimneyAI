@@ -54,7 +54,7 @@ export default function ChimneyChat({mode}:{mode:Mode}){
   },[attachments,sourceFiles,proSource,manualVerification]);
 
   async function addFiles(files:FileList|null){
-    if(!files)return;
+    if(!files||busy)return;
     const selected=Array.from(files),available=6-attachments.length;
     if(available<=0){setAttachmentStatus("Remove an attachment before adding another. Maximum: 6.");return}
     setAttachmentStatus(`Preparing ${Math.min(selected.length,available)} attachment${Math.min(selected.length,available)===1?"":"s"}…`);
@@ -102,12 +102,11 @@ export default function ChimneyChat({mode}:{mode:Mode}){
       setAttachmentStatus("This combined request is too large for production upload. Remove one or more photos, or send them separately.");
       return;
     }
-    setMessages(next);setText("");setBusy(true);setAttachments([]);setAttachmentStatus("");
+    setMessages(next);setText("");setBusy(true);setAttachmentStatus("");
     try{
       const res=await fetch("/api/chat",{method:"POST",headers:{"content-type":"application/json"},body:requestBody});
       const body:{ok?:boolean;error?:string;text?:string}=await res.json().catch(()=>({}));
       if(!res.ok||!body.ok){
-        setAttachments(current=>current.length?current:currentAttachments);
         setText(current=>current||cleaned);
         const errorMessage=body.error==="openai_not_configured"
           ?"ChimneyAI is not connected to the model yet. Add the server API key to enable live answers."
@@ -120,8 +119,8 @@ export default function ChimneyChat({mode}:{mode:Mode}){
         return;
       }
       setMessages([...next,{role:"assistant",kind:"analysis",content:body.text||"I could not produce a response."}]);
+      if(currentAttachments.length)setAttachmentStatus(`${currentAttachments.length} active source attachment${currentAttachments.length===1?" remains":"s remain"} available for follow-up questions.`);
     }catch{
-      setAttachments(current=>current.length?current:currentAttachments);
       setText(current=>current||cleaned);
       setMessages([...next,{role:"assistant",kind:"system_error",content:"ChimneyAI could not reach the service. Your attachments are still available—check your connection and try again."}]);
     }finally{
@@ -143,7 +142,7 @@ export default function ChimneyChat({mode}:{mode:Mode}){
     <div className="messages" aria-live="polite" aria-busy={busy}>{messages.map((m,i)=><div key={i} className={`message ${m.role}`}><div className="messageRole">{m.role==="user"?"You":"ChimneyAI"}</div>{mode==="pro"&&m.role==="assistant"&&m.kind!=="system_error"&&<div className="professionalReviewFlag">AI analysis · technician review required</div>}<div className="messageText">{m.content}</div></div>)}
       {busy&&<div className="message assistant"><div className="messageRole">ChimneyAI</div>{mode==="pro"&&<div className="professionalReviewFlag">Building evidence-aware analysis</div>}<div className="typing">Analyzing…</div></div>}</div>
     <div className="composer">
-      {attachments.length>0&&<div className="attachmentTray">{attachments.map((a,i)=><div className="attachmentChip" key={`${a.name}-${i}`}><span>{a.kind==="image"?"PHOTO":"DOC"} · {a.name}{a.page_count?` · ${a.page_count} pages`:""}{a.text_truncated?" · partial text":""} · {a.sha256.slice(0,10)}…</span><button type="button" aria-label={`Remove ${a.name}`} onClick={()=>setAttachments(attachments.filter((_,x)=>x!==i))}>×</button></div>)}</div>}
+      {attachments.length>0&&<div className="attachmentTray">{attachments.map((a,i)=><div className="attachmentChip" key={`${a.name}-${i}`}><span>{a.kind==="image"?"PHOTO":"DOC"} · {a.name}{a.page_count?` · ${a.page_count} pages`:""}{a.text_truncated?" · partial text":""} · {a.sha256.slice(0,10)}…</span><button type="button" aria-label={`Remove ${a.name}`} disabled={busy} onClick={()=>setAttachments(attachments.filter((_,x)=>x!==i))}>×</button></div>)}</div>}
       {attachmentStatus&&<div className="attachmentStatus" role="status" aria-live="polite">{attachmentStatus}</div>}
       {mode==="pro"&&attachments.some(a=>a.kind==="image")&&<div className="quickActions">
         <button type="button" onClick={()=>{setProSource({...proSource,task:"label_scan",source_type:"listing_label",source_status:"uploaded"});setText("Read this label carefully. Extract only legible manufacturer, model, serial, listing/standard markings, fuel/appliance information, and other visible installation data. Identify uncertain characters and tell me exactly what source/manual is needed next.");}}>Treat photo as label scan</button>
@@ -152,10 +151,10 @@ export default function ChimneyChat({mode}:{mode:Mode}){
       </div>}
       <textarea aria-label={mode==="pro"?"Technical question or field documentation":"Chimney or fireplace question"} value={text} onChange={e=>setText(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}}
         placeholder={mode==="pro"?"Ask a technical question, or attach field documentation…":"Ask a question, or attach your report/photo…"} rows={3}/>
-      <div className="composerActions"><button className="attachBtn" type="button" onClick={()=>inputRef.current?.click()}>＋ Attach</button>
-        <input ref={inputRef} hidden type="file" multiple accept="image/*,.pdf,.txt,.md,.csv" onChange={e=>addFiles(e.target.files)}/>
+      <div className="composerActions"><button className="attachBtn" type="button" disabled={busy} onClick={()=>inputRef.current?.click()}>＋ Attach</button>
+        <input ref={inputRef} hidden type="file" multiple disabled={busy} accept="image/*,.pdf,.txt,.md,.csv" onChange={e=>addFiles(e.target.files)}/>
         <button className="sendBtn" onClick={()=>send()} disabled={busy||(!text.trim()&&attachments.length===0)}>Send</button></div>
-      <div className="composerNote">{mode==="pro"?"Photo/document analysis supports professional judgment; verify controlling sources and field conditions.":"Uploads can be explained, but ChimneyAI cannot replace an onsite inspection or issue a safety clearance."}</div>
+      <div className="composerNote">{mode==="pro"?"Active attachments stay with follow-ups until removed. Verify controlling sources and field conditions.":"Active uploads stay with follow-ups until removed. ChimneyAI cannot replace an onsite inspection or issue a safety clearance."}</div>
     </div>
   </div>
   {mode==="pro"&&<div className="proWorkspaceStack">
