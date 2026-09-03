@@ -276,7 +276,7 @@ test("inspection foundation preserves valid links and rejects cross-system evide
       {id:"system-2",property_id:"property-1",display_name:"Wood Stove",system_type:"wood_stove"}
     ],
     measurements:[{id:"measurement-1",system_id:"system-1",component:"Hearth",measurement_type:"depth",value:18,unit:"in",method:"tape",confidence:"verified",photo_id:"photo-2",technician_verified:true}],
-    findings:[{id:"finding-1",system_id:"system-1",component:"Hearth",raw_note:"Field note",ai_suggestion:"Draft wording",review_state:"ai_suggested",status:"observation_noted",photo_ids:["photo-1","photo-2"],measurement_ids:["measurement-1"]}],
+    findings:[{id:"finding-1",system_id:"system-1",component:"Hearth",raw_note:"Field note",ai_suggestion:"Draft wording",review_state:"technician_confirmed",status:"observation_noted",photo_ids:["photo-1","photo-2"],measurement_ids:["measurement-1"]}],
     photos:[
       {id:"photo-1",system_id:"system-1",source_sha256:hash,category:"hearth",finding_ids:["finding-1"],review_state:"not_requested"},
       {id:"photo-2",system_id:"system-2",source_sha256:"c".repeat(64),category:"appliance",finding_ids:["finding-1"],review_state:"not_requested"}
@@ -289,7 +289,24 @@ test("inspection foundation preserves valid links and rejects cross-system evide
   assert.equal(inspection.measurements[0].photo_id,null);
   assert.equal(inspection.findings[0].review_state,"ai_suggested");
   assert.equal(inspection.findings[0].technician_observation,"");
+  assert.equal(inspection.findings[0].reviewed_by,null);
+  assert.equal(inspection.photos[0].ai_category_suggestion,null);
   assert.equal(upsertInspection([],inspection)[0].id,"inspection-1");
+});
+
+test("inspection foundation records explicit technician review provenance",()=>{
+  const reviewed=normalizeInspection({
+    version:1,id:"inspection-reviewed",created_at:"2026-09-03T12:00:00.000Z",
+    customer:{id:"customer-1"},property:{id:"property-1",customer_id:"customer-1"},
+    systems:[{id:"system-1",property_id:"property-1",system_type:"factory_built_fireplace"}],
+    findings:[{id:"finding-1",system_id:"system-1",ai_suggestion:"Possible refractory separation.",technician_observation:"Separation observed at the rear refractory panel.",review_state:"technician_confirmed",reviewed_by:"tech-1",reviewed_at:"2026-09-03T12:05:00.000Z"}],
+    photos:[{id:"photo-1",system_id:"system-1",source_sha256:"d".repeat(64),category:"firebox",ai_category_suggestion:"firebox",review_state:"technician_rejected",reviewed_by:"tech-1",reviewed_at:"2026-09-03T12:06:00.000Z"}]
+  });
+  assert.ok(reviewed);
+  assert.equal(reviewed.findings[0].review_state,"technician_confirmed");
+  assert.equal(reviewed.findings[0].reviewed_by,"tech-1");
+  assert.equal(reviewed.photos[0].review_state,"technician_rejected");
+  assert.equal(reviewed.photos[0].reviewed_at,"2026-09-03T12:06:00.000Z");
 });
 
 test("inspection foundation rejects ambiguous ownership and unsafe lifecycle jumps",()=>{

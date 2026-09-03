@@ -36,7 +36,7 @@ export type InspectionSystem={
 };
 export type InspectionFinding={
   id:string;system_id:string;component:string;raw_note:string;technician_observation:string;ai_suggestion:string;
-  review_state:ReviewState;status:FindingStatus;recommendation:string;source_sha256:string[];photo_ids:string[];
+  review_state:ReviewState;reviewed_by:string|null;reviewed_at:string|null;status:FindingStatus;recommendation:string;source_sha256:string[];photo_ids:string[];
   measurement_ids:string[];created_at:string;updated_at:string;
 };
 export type InspectionMeasurement={
@@ -45,7 +45,7 @@ export type InspectionMeasurement={
 };
 export type InspectionPhoto={
   id:string;system_id:string;source_sha256:string;category:PhotoCategory;caption:string;finding_ids:string[];
-  ai_category_suggestion:PhotoCategory|null;review_state:ReviewState;
+  ai_category_suggestion:PhotoCategory|null;review_state:ReviewState;reviewed_by:string|null;reviewed_at:string|null;
 };
 export type InspectionReportLifecycle={status:ReportStatus;signature_status:SignatureStatus;revision:number;signed_at:string|null;delivered_at:string|null};
 export type Inspection={
@@ -103,10 +103,17 @@ export function normalizeInspection(value:unknown):Inspection|null{
   const preliminaryFindings=(Array.isArray(root.findings)?root.findings:[]).flatMap(item=>{
     const finding=record(item),findingId=id(finding.id),systemId=id(finding.system_id);
     if(!findingId||!systemIds.has(systemId))return [];
-    const reviewState=enumValue(finding.review_state,REVIEW_STATES,"not_requested");
+    const technicianObservation=text(finding.technician_observation,5000),aiSuggestion=text(finding.ai_suggestion,5000);
+    const reviewedBy=nullableText(finding.reviewed_by,100),reviewedAt=nullableTimestamp(finding.reviewed_at);
+    let reviewState=enumValue(finding.review_state,REVIEW_STATES,"not_requested");
+    if(!aiSuggestion)reviewState="not_requested";
+    else if(reviewState==="not_requested")reviewState="ai_suggested";
+    else if((reviewState==="technician_confirmed"||reviewState==="technician_rejected")&&(!reviewedBy||!reviewedAt))reviewState="ai_suggested";
+    if(reviewState==="technician_confirmed"&&!technicianObservation)reviewState="ai_suggested";
     return [{id:findingId,system_id:systemId,component:text(finding.component,200),raw_note:text(finding.raw_note,5000),
-      technician_observation:text(finding.technician_observation,5000),ai_suggestion:text(finding.ai_suggestion,5000),
-      review_state:reviewState,status:enumValue(finding.status,FINDING_STATUSES,"observation_noted"),
+      technician_observation:technicianObservation,ai_suggestion:aiSuggestion,
+      review_state:reviewState,reviewed_by:reviewState.startsWith("technician_")?reviewedBy:null,reviewed_at:reviewState.startsWith("technician_")?reviewedAt:null,
+      status:enumValue(finding.status,FINDING_STATUSES,"observation_noted"),
       recommendation:text(finding.recommendation,5000),source_sha256:hashList(finding.source_sha256),
       photo_ids:stringList(finding.photo_ids,100,100),measurement_ids:stringList(finding.measurement_ids,100,100).filter(value=>measurementIds.has(value)),
       created_at:timestamp(finding.created_at,createdAt),updated_at:timestamp(finding.updated_at,createdAt)} satisfies InspectionFinding];
@@ -116,10 +123,16 @@ export function normalizeInspection(value:unknown):Inspection|null{
   const photos=(Array.isArray(root.photos)?root.photos:[]).flatMap(item=>{
     const photo=record(item),photoId=id(photo.id),systemId=id(photo.system_id),sourceSha=text(photo.source_sha256,64).toLowerCase();
     if(!photoId||!systemIds.has(systemId)||!/^[a-f0-9]{64}$/.test(sourceSha))return [];
-    const suggested=photo.ai_category_suggestion===null?null:enumValue(photo.ai_category_suggestion,PHOTO_CATEGORIES,"other");
+    const suggested=PHOTO_CATEGORIES.includes(photo.ai_category_suggestion as PhotoCategory)?photo.ai_category_suggestion as PhotoCategory:null;
+    const reviewedBy=nullableText(photo.reviewed_by,100),reviewedAt=nullableTimestamp(photo.reviewed_at);
+    let reviewState=enumValue(photo.review_state,REVIEW_STATES,"not_requested");
+    if(!suggested)reviewState="not_requested";
+    else if(reviewState==="not_requested")reviewState="ai_suggested";
+    else if((reviewState==="technician_confirmed"||reviewState==="technician_rejected")&&(!reviewedBy||!reviewedAt))reviewState="ai_suggested";
     return [{id:photoId,system_id:systemId,source_sha256:sourceSha,category:enumValue(photo.category,PHOTO_CATEGORIES,"other"),
       caption:text(photo.caption,2000),finding_ids:stringList(photo.finding_ids,100,100).filter(value=>findingIds.has(value)),
-      ai_category_suggestion:suggested,review_state:enumValue(photo.review_state,REVIEW_STATES,"not_requested")} satisfies InspectionPhoto];
+      ai_category_suggestion:suggested,review_state:reviewState,reviewed_by:reviewState.startsWith("technician_")?reviewedBy:null,
+      reviewed_at:reviewState.startsWith("technician_")?reviewedAt:null} satisfies InspectionPhoto];
   }).filter((photo,index,all)=>all.findIndex(candidate=>candidate.id===photo.id)===index).slice(0,MAX_INSPECTION_PHOTOS);
   const photoSystemById=new Map(photos.map(photo=>[photo.id,photo.system_id]));
   const findingSystemById=new Map(preliminaryFindings.map(finding=>[finding.id,finding.system_id]));
