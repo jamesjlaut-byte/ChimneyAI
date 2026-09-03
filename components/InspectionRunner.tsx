@@ -1,5 +1,5 @@
 "use client";
-import {useEffect,useMemo,useState,type FormEvent} from "react";
+import {useEffect,useMemo,useRef,useState,type FormEvent} from "react";
 import InspectionPhotoCapture from "@/components/InspectionPhotoCapture";
 import {firstIncompleteChecklistIndex,getInspectionChecklist,missingChecklistItems} from "@/lib/inspection-checklists";
 import {recommendedPhotoGaps} from "@/lib/inspection-photo";
@@ -13,6 +13,7 @@ const STATUS_OPTIONS:ReadonlyArray<{value:FindingStatus;label:string}>=[
 
 export default function InspectionRunner({inspection,onChange,onDirtyChange}:{inspection:Inspection;onChange:(inspection:Inspection)=>void;onDirtyChange?:(dirty:boolean)=>void}){
   const system=inspection.systems[0];
+  const componentHeading=useRef<HTMLHeadingElement>(null),focusComponent=useRef(false);
   const checklist=useMemo(()=>system?getInspectionChecklist(system.system_type,inspection.inspection_type):[],[system,inspection.inspection_type]);
   const [step,setStep]=useState(()=>firstIncompleteChecklistIndex(checklist,inspection.findings.filter(finding=>finding.system_id===system?.id).map(finding=>finding.component))),[findingStatus,setFindingStatus]=useState<FindingStatus|"">(""),[note,setNote]=useState(""),[message,setMessage]=useState("");
   const current=checklist[step];
@@ -27,6 +28,7 @@ export default function InspectionRunner({inspection,onChange,onDirtyChange}:{in
   const hasUnsavedChanges=findingStatus!==(existing?.status||"")||note!==(existing?.raw_note||"");
 
   useEffect(()=>{onDirtyChange?.(hasUnsavedChanges)},[hasUnsavedChanges,onDirtyChange]);
+  useEffect(()=>{if(focusComponent.current){componentHeading.current?.focus();focusComponent.current=false}},[step]);
 
   useEffect(()=>{
     setFindingStatus(existing?.status||"");setNote(existing?.raw_note||"");setMessage("");
@@ -35,6 +37,14 @@ export default function InspectionRunner({inspection,onChange,onDirtyChange}:{in
   function goToStep(nextStep:number){
     if(hasUnsavedChanges){setMessage("Save this component before moving to another step.");return}
     setStep(nextStep);
+  }
+
+  function reviewNextPhoto(){
+    if(hasUnsavedChanges){setMessage("Save this component before moving to another step.");return}
+    const nextStep=checklist.findIndex(item=>item.id===photoGaps[0]?.id);
+    if(nextStep<0)return;
+    if(nextStep===step){componentHeading.current?.focus();return}
+    focusComponent.current=true;goToStep(nextStep);
   }
 
   function saveFinding(event:FormEvent<HTMLFormElement>){
@@ -70,13 +80,14 @@ export default function InspectionRunner({inspection,onChange,onDirtyChange}:{in
     <details className="inspectionStepList"><summary>Review steps <small>{completed===checklist.length?"All documented":"Tap to revisit a component"}</small></summary><div>{checklist.map((item,index)=>{const saved=findingsByComponent.get(item.id),photoCount=saved?systemPhotos.filter(photo=>photo.finding_ids.includes(saved.id)).length:0;return <button type="button" key={item.id} className={index===step?"active":""} aria-current={index===step?"step":undefined} onClick={()=>goToStep(index)}><span>{index+1}. {item.label}</span><small>{saved?`${STATUS_OPTIONS.find(option=>option.value===saved.status)?.label}${photoCount?` · ${photoCount} photo${photoCount===1?"":"s"}`:""}`:"Not documented"}</small></button>})}</div></details>
     <form onSubmit={saveFinding}>
       <div className="inspectionStepMeta"><span>Step {step+1} of {checklist.length}</span>{current.photoRecommended?<em>Photo recommended</em>:<em>Photo optional</em>}</div>
-      <h3>{current.label}</h3>
+      <h3 ref={componentHeading} tabIndex={-1}>{current.label}</h3>
       <fieldset><legend>Technician-selected status</legend><div className="inspectionStatusGrid">{STATUS_OPTIONS.map(option=><label key={option.value} className={findingStatus===option.value?"selected":""}><input required type="radio" name={`status-${current.id}`} value={option.value} checked={findingStatus===option.value} onChange={()=>setFindingStatus(option.value)} /><span>{option.label}</span></label>)}</div></fieldset>
       <label className="inspectionNote">Field note<textarea rows={3} value={note} onChange={event=>setNote(event.target.value)} placeholder="Record only what you observed. Voice entry is available from your phone keyboard." /></label>
       <div className="inspectionRunnerActions"><button type="button" disabled={step===0} onClick={()=>goToStep(step-1)}>Previous</button><span role="status" aria-live="polite">{message}</span><button type="submit" disabled={!findingStatus}>{step===checklist.length-1?"Save component":"Save & next"}</button></div>
     </form>
     <InspectionPhotoCapture inspection={inspection} finding={existing} component={current.id} label={current.label} onChange={onChange}/>
     <div className={`inspectionPhotoCoverage ${photoGaps.length||missing.length?"needsPhotos":"covered"}`}><b>{photoGaps.length?`${photoGaps.length} recommended photo${photoGaps.length===1?"":"s"} missing`:missing.length?"Photo review in progress":"No recommended photo gaps in documented components"}</b><span>{photoGaps.length?photoGaps.slice(0,3).map(item=>item.label).join(" · ")+(photoGaps.length>3?` · +${photoGaps.length-3} more`:""):missing.length?"Save the remaining component statuses to finish checking photo recommendations.":"Photo-optional, inaccessible, and not-applicable components are excluded."} Recommended photos are a quality-control prompt, not proof that an area was accessible or a condition exists.</span></div>
+    {photoGaps.length?<button className="inspectionPhotoReview" type="button" onClick={reviewNextPhoto} disabled={hasUnsavedChanges}>Review next missing photo: {photoGaps[0].label}</button>:null}
     <section className={`inspectionCompletion ${missing.length?"incomplete":"complete"}`} aria-labelledby="inspection-completion-title"><div><small>Completion review</small><b id="inspection-completion-title">{missing.length?`${missing.length} component${missing.length===1?"":"s"} still undocumented`:inspection.status==="ready_for_review"?"Ready for technician review":"All components documented"}</b><span>{missing.length?missing.slice(0,3).map(item=>item.label).join(" · ")+(missing.length>3?` · +${missing.length-3} more`:""):"This means the checklist is complete—not that the system is safe or compliant."}</span></div><button type="button" onClick={markReadyForReview} disabled={Boolean(missing.length)||hasUnsavedChanges||inspection.status!=="in_progress"}>{inspection.status==="ready_for_review"?"Ready for review":"Mark ready for review"}</button></section>
     <p>AI can assist with wording later. The technician remains responsible for every status and observation.</p>
   </section>;

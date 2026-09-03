@@ -42,6 +42,9 @@ test("unfinished inspection photo review does not claim complete coverage",()=>{
   const runner=readFileSync(new URL("../components/InspectionRunner.tsx",import.meta.url),"utf8");
   assert.ok(runner.includes('missing.length?"Photo review in progress"'));
   assert.equal(runner.includes("Recommended photo coverage complete"),false);
+  assert.ok(runner.includes('onClick={reviewNextPhoto} disabled={hasUnsavedChanges}'));
+  assert.ok(runner.includes('checklist.findIndex(item=>item.id===photoGaps[0]?.id)'));
+  assert.ok(runner.includes('ref={componentHeading} tabIndex={-1}'));
 });
 
 test("guided inspection checklists adapt to system and inspection level",()=>{
