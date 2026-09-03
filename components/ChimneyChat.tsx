@@ -114,6 +114,8 @@ export default function ChimneyChat({mode}:{mode:Mode}){
             ?"ChimneyAI's AI service needs OpenAI API credits. Your question and attachments are preserved. The site owner must add credits before live answers can resume."
             :body.error==="model_rate_limited"
               ?"ChimneyAI's AI service is temporarily busy. Your question and attachments are preserved—wait a moment and try again."
+              :body.error==="request_rate_limited"
+                ?"Too many questions were submitted from this connection in a short time. Your question and attachments are preserved—wait about a minute and try again."
               :"I couldn't complete that request. Your attachments are still available—please try again.";
         setMessages([...next,{role:"assistant",kind:"system_error",content:errorMessage}]);
         return;

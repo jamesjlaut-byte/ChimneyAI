@@ -4,6 +4,7 @@ import {z} from "zod";
 import {promptForMode} from "@/lib/prompts";
 import {proSourceInstruction} from "@/lib/pro-source";
 import {modelsConflict} from "@/lib/model-identity";
+import {checkChatRateLimit} from "@/lib/request-rate-limit";
 
 const MAX_REQUEST_BYTES=4_000_000;
 const AttachmentMetadata={
@@ -79,6 +80,13 @@ export async function POST(req:Request){
   const announcedSize=Number(req.headers.get("content-length"));
   if(Number.isFinite(announcedSize)&&announcedSize>MAX_REQUEST_BYTES){
     return Response.json({ok:false,error:"payload_too_large"},{status:413});
+  }
+  const rateLimit=checkChatRateLimit(req);
+  if(!rateLimit.allowed){
+    return Response.json({ok:false,error:"request_rate_limited"},{
+      status:429,
+      headers:{"Retry-After":String(rateLimit.retryAfter),"Cache-Control":"no-store"}
+    });
   }
   let rawBody:string;
   let requestBody:unknown;
