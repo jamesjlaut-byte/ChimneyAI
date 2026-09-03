@@ -1,6 +1,6 @@
 "use client";
 import {useEffect,useMemo,useState,type FormEvent} from "react";
-import {firstIncompleteChecklistIndex,getInspectionChecklist} from "@/lib/inspection-checklists";
+import {firstIncompleteChecklistIndex,getInspectionChecklist,missingChecklistItems} from "@/lib/inspection-checklists";
 import {loadInspections,normalizeInspection,saveInspections,upsertInspection,type FindingStatus,type Inspection} from "@/lib/inspections";
 
 const STATUS_OPTIONS:ReadonlyArray<{value:FindingStatus;label:string}>=[
@@ -19,6 +19,7 @@ export default function InspectionRunner({inspection,onChange}:{inspection:Inspe
   const systemFindings=inspection.findings.filter(finding=>finding.system_id===system?.id&&checklistIds.has(finding.component));
   const findingsByComponent=new Map(systemFindings.map(finding=>[finding.component,finding]));
   const completed=new Set(systemFindings.map(finding=>finding.component)).size;
+  const missing=missingChecklistItems(checklist,systemFindings.map(finding=>finding.component));
   const hasUnsavedChanges=findingStatus!==(existing?.status||"")||note!==(existing?.raw_note||"");
 
   useEffect(()=>{
@@ -40,12 +41,20 @@ export default function InspectionRunner({inspection,onChange}:{inspection:Inspe
       status:findingStatus,recommendation:existing?.recommendation||"",source_sha256:existing?.source_sha256||[],photo_ids:existing?.photo_ids||[],
       measurement_ids:existing?.measurement_ids||[],created_at:existing?.created_at||now,updated_at:now
     };
-    const candidate=normalizeInspection({...inspection,findings:[...inspection.findings.filter(finding=>finding.id!==nextFinding.id),nextFinding],updated_at:now});
+    const candidate=normalizeInspection({...inspection,status:inspection.status==="draft"||inspection.status==="ready_for_review"?"in_progress":inspection.status,findings:[...inspection.findings.filter(finding=>finding.id!==nextFinding.id),nextFinding],updated_at:now});
     if(!candidate){setMessage("This component could not be saved. Review the inspection setup and try again.");return}
     try{
       saveInspections(upsertInspection(loadInspections(),candidate));onChange(candidate);setMessage("Component saved on this device.");
       if(step<checklist.length-1)setStep(value=>value+1);
     }catch(error){setMessage(error instanceof Error?error.message:"This component could not be saved in this browser.")}
+  }
+
+  function markReadyForReview(){
+    if(missing.length||hasUnsavedChanges||inspection.status!=="in_progress")return;
+    const candidate=normalizeInspection({...inspection,status:"ready_for_review",updated_at:new Date().toISOString()});
+    if(!candidate){setMessage("The inspection could not be prepared for review.");return}
+    try{saveInspections(upsertInspection(loadInspections(),candidate));onChange(candidate);setMessage("Inspection marked ready for technician review.")}
+    catch(error){setMessage(error instanceof Error?error.message:"The inspection could not be prepared for review.")}
   }
 
   if(!system||!current)return null;
@@ -60,6 +69,7 @@ export default function InspectionRunner({inspection,onChange}:{inspection:Inspe
       <label className="inspectionNote">Field note<textarea rows={3} value={note} onChange={event=>setNote(event.target.value)} placeholder="Record only what you observed. Voice entry is available from your phone keyboard." /></label>
       <div className="inspectionRunnerActions"><button type="button" disabled={step===0} onClick={()=>goToStep(step-1)}>Previous</button><span role="status" aria-live="polite">{message}</span><button type="submit" disabled={!findingStatus}>{step===checklist.length-1?"Save component":"Save & next"}</button></div>
     </form>
+    <section className={`inspectionCompletion ${missing.length?"incomplete":"complete"}`} aria-labelledby="inspection-completion-title"><div><small>Completion review</small><b id="inspection-completion-title">{missing.length?`${missing.length} component${missing.length===1?"":"s"} still undocumented`:inspection.status==="ready_for_review"?"Ready for technician review":"All components documented"}</b><span>{missing.length?missing.slice(0,3).map(item=>item.label).join(" · ")+(missing.length>3?` · +${missing.length-3} more`:""):"This means the checklist is complete—not that the system is safe or compliant."}</span></div><button type="button" onClick={markReadyForReview} disabled={Boolean(missing.length)||hasUnsavedChanges||inspection.status!=="in_progress"}>{inspection.status==="ready_for_review"?"Ready for review":"Mark ready for review"}</button></section>
     <p>AI can assist with wording later. The technician remains responsible for every status and observation.</p>
   </section>;
 }

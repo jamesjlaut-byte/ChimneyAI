@@ -179,6 +179,8 @@ Second increment: the active inspection now opens a one-component-at-a-time fiel
 
 Third increment: returning technicians resume at the first undocumented component, while a collapsed progress list makes any saved component directly revisitable. Navigation protects unsaved field edits from accidental loss and retains the narrow, one-task-at-a-time mobile surface.
 
+Fourth increment: a deterministic completion review identifies remaining components and permits the technician—not AI—to move a fully documented inspection to `ready_for_review`. Editing a review-ready finding returns the inspection to `in_progress`, preventing stale review state. Checklist completion is explicitly separated from any safety or compliance conclusion.
+
 ### Phase 3 — Photo and findings workflow
 
 Photo records, categories, captions, component linkage, raw notes, AI suggestion review, confirm/reject/edit/request-view actions, and finding/recommendation traceability.

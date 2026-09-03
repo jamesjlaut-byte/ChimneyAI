@@ -19,7 +19,7 @@ import {provenanceFromAttachment} from "../lib/source-provenance.ts";
 import {isMeaningfulProDraft,parseProDraft,prepareProDraft} from "../lib/pro-draft.ts";
 import {sha256Blob} from "../lib/source-file-store.ts";
 import {canTransitionInspectionStatus,normalizeInspection,parseInspections,serializeInspections,upsertInspection,validateInspectionCollectionUpdate} from "../lib/inspections.ts";
-import {firstIncompleteChecklistIndex,getInspectionChecklist} from "../lib/inspection-checklists.ts";
+import {firstIncompleteChecklistIndex,getInspectionChecklist,missingChecklistItems} from "../lib/inspection-checklists.ts";
 
 test("guided inspection checklists adapt to system and inspection level",()=>{
   const masonry=getInspectionChecklist("masonry_fireplace","level_1");
@@ -36,6 +36,8 @@ test("guided inspection checklists adapt to system and inspection level",()=>{
   assert.equal(firstIncompleteChecklistIndex(woodStove,[]),0);
   assert.equal(firstIncompleteChecklistIndex(woodStove,woodStove.slice(0,2).map(item=>item.id)),2);
   assert.equal(firstIncompleteChecklistIndex(woodStove,woodStove.map(item=>item.id)),woodStove.length-1);
+  assert.deepEqual(missingChecklistItems(woodStove,woodStove.slice(0,2).map(item=>item.id)),woodStove.slice(2));
+  assert.deepEqual(missingChecklistItems(woodStove,woodStove.map(item=>item.id)),[]);
 });
 
 test("manufacturer registry resolves canonical names and field aliases",()=>{

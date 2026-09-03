@@ -29,3 +29,8 @@ export function firstIncompleteChecklistIndex(checklist:InspectionChecklistItem[
   const completed=new Set(completedComponentIds),index=checklist.findIndex(item=>!completed.has(item.id));
   return index<0?Math.max(checklist.length-1,0):index;
 }
+
+export function missingChecklistItems(checklist:InspectionChecklistItem[],completedComponentIds:Iterable<string>):InspectionChecklistItem[]{
+  const completed=new Set(completedComponentIds);
+  return checklist.filter(item=>!completed.has(item.id));
+}
