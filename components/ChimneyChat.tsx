@@ -16,6 +16,7 @@ import {modelsConflict} from "@/lib/model-identity";
 import MessageContent from "@/components/MessageContent";
 import {defaultSourceRole} from "@/lib/default-source-role";
 import {markLastAttemptFailed,modelHistory,type ChatHistoryMessage} from "@/lib/chat-history";
+import {clearProDraft,isMeaningfulProDraft,loadProDraft,saveProDraft} from "@/lib/pro-draft";
 
 type Mode="homeowner"|"pro"; type Msg=ChatHistoryMessage;
 const starterHomeowner=["Explain this inspection report to me.","What does this repair recommendation mean?","What should I ask before hiring a chimney sweep?","Can you explain what you can see in a fireplace photo?"];
@@ -27,11 +28,36 @@ export default function ChimneyChat({mode}:{mode:Mode}){
   const [proSource,setProSource]=useState<ProSourceState>(EMPTY_PRO_SOURCE);
   const [manualVerification,setManualVerification]=useState<ManualVerification>(EMPTY_MANUAL);
   const [sourceFiles,setSourceFiles]=useState<SourceProvenanceRecord[]>([]);
+  const [draftReady,setDraftReady]=useState(mode!=="pro"),[draftStatus,setDraftStatus]=useState("");
   const inputRef=useRef<HTMLInputElement>(null),attachmentsRef=useRef(attachments);
   const requestRef=useRef<{id:number;controller:AbortController}|null>(null),nextRequestId=useRef(0);
   const starters=useMemo(()=>mode==="pro"?starterPro:starterHomeowner,[mode]);
   useEffect(()=>{attachmentsRef.current=attachments},[attachments]);
   useEffect(()=>()=>requestRef.current?.controller.abort(),[]);
+  useEffect(()=>{
+    if(mode!=="pro")return;
+    const draft=loadProDraft();
+    if(draft&&isMeaningfulProDraft(draft)){
+      setText(draft.text);setMessages(draft.messages);setProSource(draft.source);
+      setManualVerification(draft.manual);setSourceFiles(draft.source_files);
+      setDraftStatus(`Recovered local draft from ${new Date(draft.saved_at).toLocaleString()}. Reattach session files or restore persisted files from the Source File Vault.`);
+    }
+    setDraftReady(true);
+  },[mode]);
+  useEffect(()=>{
+    if(mode!=="pro"||!draftReady)return;
+    const draft={text,messages,source:proSource,manual:manualVerification,source_files:sourceFiles};
+    const timer=window.setTimeout(()=>{
+      try{
+        if(!isMeaningfulProDraft(draft)){clearProDraft();setDraftStatus("");return}
+        saveProDraft(draft);
+        setDraftStatus(current=>current.startsWith("Recovered")?current:"Draft saved on this device.");
+      }catch{
+        setDraftStatus("Draft could not be saved in this browser. Keep this page open and save an important case manually.");
+      }
+    },600);
+    return()=>window.clearTimeout(timer);
+  },[mode,draftReady,text,messages,proSource,manualVerification,sourceFiles]);
   const evidenceChecks=useMemo(()=>{
     const identityFields=[proSource.manufacturer.trim(),proSource.model.trim()];
     const identityCount=identityFields.filter(Boolean).length;
@@ -158,9 +184,19 @@ export default function ChimneyChat({mode}:{mode:Mode}){
     setMessages([]);setText("");setAttachments([]);setAttachmentStatus("");
   }
 
+  function discardActiveDraft(){
+    if(!window.confirm("Discard the active Pro draft on this device? Saved Pro Cases and Source File Vault bytes will not be deleted."))return;
+    requestRef.current?.controller.abort();requestRef.current=null;setBusy(false);clearProDraft();
+    setMessages([]);setText("");setAttachments([]);setAttachmentStatus("");setProSource(EMPTY_PRO_SOURCE);
+    setManualVerification(EMPTY_MANUAL);setSourceFiles([]);setDraftStatus("");
+  }
+
   return <div className={`chatExperience ${mode}`}><div className={`chatShell ${mode}`}>
+    {mode==="pro"&&draftStatus&&<div className={`draftBar ${draftStatus.startsWith("Draft could not")?"draftError":""}`} role="status">
+      <span>{draftStatus}</span><button type="button" onClick={discardActiveDraft}>Discard draft</button>
+    </div>}
     {messages.length>0&&<div className="chatSessionBar"><span>{messages.length} message{messages.length===1?"":"s"}{messages.length>40?" · recent context used for new answers":""}</span><button type="button" onClick={startNewChat}>New chat</button></div>}
-    {messages.length===0&&<div className="welcomePanel"><div className="aiOrb"><Image src="/assets/chimneyai-app-icon.png" alt="ChimneyAI app" width={76} height={76}/></div><h2>{mode==="pro"?"What are you working on?":"How can I help with your chimney or fireplace?"}</h2>
+    {messages.length===0&&<div className="welcomePanel"><div className="aiOrb"><Image src="/assets/chimneyai-app-icon.png" alt="ChimneyAI app" width={76} height={76} priority/></div><h2>{mode==="pro"?"What are you working on?":"How can I help with your chimney or fireplace?"}</h2>
       <p>{mode==="pro"?"Upload field photos or report text, run calculations, and ask technical/documentation questions.":"Upload an inspection report or photo and ChimneyAI can help explain what it says or what is visibly shown."}</p>
       <div className="starterGrid">{starters.map(x=><button key={x} type="button" onClick={()=>send(x)}>{x}</button>)}</div></div>}
     <div className="messages" role="log" aria-label="ChimneyAI conversation" aria-live="polite" aria-relevant="additions text" aria-busy={busy}>{messages.map((m,i)=><div key={i} className={`message ${m.role}`}><div className="messageRole">{m.role==="user"?"You":"ChimneyAI"}</div>{mode==="pro"&&m.role==="assistant"&&m.kind!=="system_error"&&<div className="professionalReviewFlag">AI analysis · technician review required</div>}<div className="messageText">{m.role==="assistant"&&m.kind!=="system_error"?<MessageContent content={m.content}/>:m.content}</div></div>)}

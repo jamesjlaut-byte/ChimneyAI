@@ -14,6 +14,7 @@ import {HOMEOWNER_SYSTEM_PROMPT,PRO_SYSTEM_PROMPT,promptForMode} from "../lib/pr
 import {proSourceInstruction} from "../lib/pro-source.ts";
 import {checkChatRateLimit} from "../lib/request-rate-limit.ts";
 import {provenanceFromAttachment} from "../lib/source-provenance.ts";
+import {isMeaningfulProDraft,parseProDraft} from "../lib/pro-draft.ts";
 import {sha256Blob} from "../lib/source-file-store.ts";
 
 test("manufacturer registry resolves canonical names and field aliases",()=>{
@@ -213,6 +214,23 @@ test("case upsert replaces a matching case and caps browser storage index",()=>{
   const updated=upsertLocalCase(cases,replacement);
   assert.equal(updated.length,100);
   assert.equal(updated[0],replacement);
+});
+
+test("active Pro drafts are versioned, bounded, and safely normalized",()=>{
+  assert.equal(parseProDraft({version:2,saved_at:new Date().toISOString()}),null);
+  const draft=parseProDraft({
+    version:1,saved_at:"2026-09-03T12:00:00.000Z",text:"x".repeat(20_500),
+    messages:[{role:"user",content:"Field note"},{role:"system",content:"Injected"}],
+    source:{manufacturer:"Example Hearth",task:"invented"},manual:{manual_title:"Exact manual"},
+    source_files:[{sha256:"a".repeat(64),file_name:"manual.pdf",mime_type:"application/pdf",byte_size:20,role:"manual",note:""}]
+  });
+  assert.ok(draft);
+  assert.equal(draft.text.length,20_000);
+  assert.deepEqual(draft.messages,[{role:"user",content:"Field note"}]);
+  assert.equal(draft.source.task,"general");
+  assert.equal(draft.source_files[0].storage_status,"missing");
+  assert.equal(isMeaningfulProDraft(draft),true);
+  assert.equal(isMeaningfulProDraft({...draft,text:"",messages:[],source_files:[],source:normalizeProSource({}),manual:normalizeManual({})}),false);
 });
 
 test("attachment provenance preserves the source fingerprint",()=>{
