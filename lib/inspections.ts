@@ -6,6 +6,7 @@ export const MAX_INSPECTION_MEASUREMENTS=500;
 export const MAX_INSPECTION_PHOTOS=500;
 
 const STORAGE_KEY="chimneyai_inspections_v1";
+const INSPECTION_TYPES=["level_1","level_2","limited_scope","service_documentation","other"] as const;
 const INSPECTION_STATUSES=["draft","in_progress","ready_for_review","completed","delivered","archived"] as const;
 const REPORT_STATUSES=["not_started","draft","ready_for_review","completed","delivered"] as const;
 const SIGNATURE_STATUSES=["not_requested","pending","signed"] as const;
@@ -17,6 +18,7 @@ const MEASUREMENT_METHODS=["manual","tape","laser","camera_assisted","calculated
 const MEASUREMENT_CONFIDENCE=["technician_entered","ai_estimated","verified"] as const;
 const PHOTO_CATEGORIES=["firebox","hearth","damper","smoke_chamber","flue","cap","crown","chase_cover","flashing","chimney_exterior","attic","firestop","insulation_shield","connector","appliance","data_plate","clearance","defect","repair","before","after","other"] as const;
 
+export type InspectionType=typeof INSPECTION_TYPES[number];
 export type InspectionStatus=typeof INSPECTION_STATUSES[number];
 export type ReportStatus=typeof REPORT_STATUSES[number];
 export type SignatureStatus=typeof SIGNATURE_STATUSES[number];
@@ -53,7 +55,7 @@ export type InspectionPhoto={
 export type InspectionReportLifecycle={status:ReportStatus;signature_status:SignatureStatus;revision:number;signed_at:string|null;delivered_at:string|null};
 export type Inspection={
   version:typeof INSPECTION_SCHEMA_VERSION;id:string;company_id:string|null;technician:InspectionTechnician;
-  customer:InspectionCustomer;property:InspectionProperty;systems:InspectionSystem[];inspection_type:string;
+  customer:InspectionCustomer;property:InspectionProperty;systems:InspectionSystem[];inspection_type:InspectionType;
   inspection_date:string;status:InspectionStatus;started_at:string|null;completed_at:string|null;
   pro_case_id:string|null;findings:InspectionFinding[];measurements:InspectionMeasurement[];photos:InspectionPhoto[];
   report:InspectionReportLifecycle;created_at:string;updated_at:string;
@@ -68,6 +70,12 @@ function nullableTimestamp(value:unknown){const candidate=text(value,100);return
 function id(value:unknown){return text(value,100).trim();}
 function stringList(value:unknown,max=100,itemMax=2000){return Array.isArray(value)?[...new Set(value.map(item=>text(item,itemMax).trim()).filter(Boolean))].slice(0,max):[];}
 function hashList(value:unknown){return stringList(value,100,64).map(value=>value.toLowerCase()).filter(value=>/^[a-f0-9]{64}$/.test(value));}
+function inspectionType(value:unknown):InspectionType{
+  const candidate=text(value,100).trim().toLowerCase().replace(/[\s-]+/g,"_");
+  if(candidate==="level1")return "level_1";
+  if(candidate==="level2")return "level_2";
+  return enumValue(candidate,INSPECTION_TYPES,"other");
+}
 
 export function normalizeInspection(value:unknown):Inspection|null{
   const root=record(value),inspectionId=id(root.id);
@@ -174,7 +182,7 @@ export function normalizeInspection(value:unknown):Inspection|null{
       email:text(customerRecord.email,320),phone:text(customerRecord.phone,100),notes:text(customerRecord.notes,3000)},
     property:{id:propertyId,customer_id:customerId,street_address:text(propertyRecord.street_address,300),city:text(propertyRecord.city,200),
       state:text(propertyRecord.state,100),postal_code:text(propertyRecord.postal_code,40),notes:text(propertyRecord.notes,3000)},
-    systems,inspection_type:text(root.inspection_type,200),inspection_date:text(root.inspection_date,100),
+    systems,inspection_type:inspectionType(root.inspection_type),inspection_date:text(root.inspection_date,100),
     status:inspectionStatus,started_at:nullableTimestamp(root.started_at),completed_at:nullableTimestamp(root.completed_at),
     pro_case_id:nullableText(root.pro_case_id,100),findings,measurements:safeMeasurements,photos:safePhotos,
     report:{status:reportStatus,signature_status:signatureStatus,

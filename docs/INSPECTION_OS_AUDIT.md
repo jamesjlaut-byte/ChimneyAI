@@ -202,6 +202,7 @@ Structured label OCR, chimney-specific photo classification/second look, voice c
 - Existing Pro Cases, active draft, chat, PDFs/images, Source File Vault, manuals, calculators, cloud case code, and Homeowner mode remain unchanged and pass regression tests.
 - A fictional multi-system inspection round-trips through normalization and browser serialization without losing supported relationships.
 - Invalid IDs, enums, cross-inspection relationships, excessive collections, fabricated confirmation, and unsafe lifecycle transitions are rejected or conservatively normalized.
+- Inspection scope is restricted to Level 1, Level 2, limited scope, service documentation, or an explicit other state; legacy Level 1/2 labels normalize safely.
 - A finding cannot become technician-confirmed through an AI field alone.
 - Technician confirm/reject states retain reviewer identity and timestamp; incomplete review provenance is downgraded to an unconfirmed AI suggestion.
 - Finding review and measurement verification provenance must match the technician assigned to the inspection; mismatched identities are not accepted as technician decisions.

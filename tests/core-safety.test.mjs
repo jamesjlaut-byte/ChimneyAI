@@ -285,6 +285,7 @@ test("inspection foundation preserves valid links and rejects cross-system evide
     report:{status:"draft",signature_status:"not_requested",revision:0}
   });
   assert.ok(inspection);
+  assert.equal(inspection.inspection_type,"level_2");
   assert.deepEqual(inspection.findings[0].photo_ids,["photo-1"]);
   assert.deepEqual(inspection.photos[1].finding_ids,[]);
   assert.equal(inspection.measurements[0].photo_id,null);
@@ -297,6 +298,22 @@ test("inspection foundation preserves valid links and rejects cross-system evide
   assert.equal(inspection.photos[0].ai_category_suggestion,null);
   assert.equal(inspection.photos[0].ai_confidence,null);
   assert.equal(upsertInspection([],inspection)[0].id,"inspection-1");
+});
+
+test("inspection types normalize legacy labels and reject unsupported claims",()=>{
+  const foundation={
+    version:1,created_at:"2026-09-03T12:00:00.000Z",
+    customer:{id:"customer-1"},property:{id:"property-1",customer_id:"customer-1"},systems:[]
+  };
+  assert.equal(normalizeInspection({...foundation,id:"level-one",inspection_type:"Level 1"})?.inspection_type,"level_1");
+  assert.equal(normalizeInspection({...foundation,id:"level-two",inspection_type:"level-2"})?.inspection_type,"level_2");
+  assert.equal(normalizeInspection({...foundation,id:"limited",inspection_type:"limited scope"})?.inspection_type,"limited_scope");
+  assert.equal(normalizeInspection({...foundation,id:"unsupported",inspection_type:"definitive compliance certification"})?.inspection_type,"other");
+
+  const migration=readFileSync(new URL("../supabase/migrations/0006_constrain_inspection_type.sql",import.meta.url),"utf8");
+  assert.match(migration,/alter column inspection_type set default 'other'/);
+  assert.match(migration,/inspection_type in \('level_1','level_2','limited_scope','service_documentation','other'\)/);
+  assert.match(migration,/not valid/);
 });
 
 test("measurement verification requires complete technician provenance",()=>{
