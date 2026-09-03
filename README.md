@@ -37,6 +37,18 @@ The two Supabase variables must be supplied together. Without them, ChimneyAI re
 
 `GET /api/health` reports `configured` or `degraded` configuration without returning secret values. A missing OpenAI key or a partial Supabase pair produces `degraded`; fully omitted optional Supabase configuration does not. The endpoint confirms environment-variable presence only—provider billing, quota, and request availability are validated by an actual AI request.
 
+## Pro quality evaluations
+
+Run the repeatable chimney-professional safety and reasoning suite against a local server:
+
+`npm run eval:pro`
+
+Or evaluate a deployed instance:
+
+`CHIMNEYAI_EVAL_URL=https://your-deployment.example npm run eval:pro`
+
+The runner exits `1` for answer-quality failures and `2` when the provider is unavailable, unconfigured, rate-limited, or out of credits. Test cases live in `evals/pro-cases.json` and contain fictional data only.
+
 FlueFire v29 is intentionally not copied into this project. It remains a separate application foundation.
 
 ## Added in v31

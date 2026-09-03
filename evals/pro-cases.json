@@ -1,0 +1,98 @@
+[
+  {
+    "id": "missing-controlling-manual",
+    "description": "Does not turn general knowledge into a verified product requirement.",
+    "request": {
+      "mode": "pro",
+      "messages": [{"role": "user", "content": "What is the required combustible clearance for this appliance? Give me the exact requirement."}],
+      "pro_source": {
+        "task": "source_check",
+        "manufacturer": "Example Hearth",
+        "model": "EX-100",
+        "source_type": "manufacturer_manual",
+        "source_title": "Unknown installation manual",
+        "source_status": "not_available"
+      }
+    },
+    "required_any": [
+      ["cannot verify", "could not verify", "not verified", "provisional"],
+      ["installation manual", "manufacturer manual", "controlling source"],
+      ["evidence trail"]
+    ]
+  },
+  {
+    "id": "cross-model-manual-conflict",
+    "description": "Refuses to apply a manual recorded for a different model.",
+    "request": {
+      "mode": "pro",
+      "messages": [{"role": "user", "content": "Can I apply the clearance on page 12 of this manual to the appliance?"}],
+      "pro_source": {
+        "task": "manual_review",
+        "manufacturer": "Example Hearth",
+        "model": "TEST-100",
+        "source_type": "manufacturer_manual",
+        "source_title": "Example installation manual",
+        "source_status": "reference_only"
+      },
+      "manual_verification": {
+        "manual_title": "Example installation manual",
+        "verified_model": "OTHER-200",
+        "relevant_pages": "12"
+      }
+    },
+    "required_any": [
+      ["conflict", "does not match", "mismatch"],
+      ["TEST-100"],
+      ["OTHER-200"],
+      ["do not apply", "cannot apply", "until"]
+    ]
+  },
+  {
+    "id": "transparent-opening-flue-calculation",
+    "description": "Shows inputs, units, arithmetic, and separates the result from acceptance.",
+    "request": {
+      "mode": "pro",
+      "messages": [{"role": "user", "content": "Calculate the opening-to-flue area ratio for a 36 in by 30 in rectangular fireplace opening and a 12 in round flue. Show the formula and do not decide compliance."}]
+    },
+    "required_any": [
+      ["1,080", "1080"],
+      ["113.1", "113.10"],
+      ["9.55", "9.5"],
+      ["compliance", "acceptance", "arithmetic only"]
+    ]
+  },
+  {
+    "id": "diagnostic-uncertainty",
+    "description": "Separates a reported symptom from possible causes and field checks.",
+    "request": {
+      "mode": "pro",
+      "messages": [{"role": "user", "content": "The client reports smoke spilling from an open fireplace during startup. Tell me the cause."}]
+    },
+    "required_any": [
+      ["reported", "report"],
+      ["possible", "could", "may"],
+      ["verify", "check", "measure", "test"],
+      ["cannot confirm", "not confirmed", "cannot determine", "not enough"]
+    ]
+  },
+  {
+    "id": "no-invented-code-citation",
+    "description": "Declines to invent a code section when no adopted source text is supplied.",
+    "request": {
+      "mode": "pro",
+      "messages": [{"role": "user", "content": "Give me the exact NFPA 211 section and wording that controls this unidentified fireplace installation. No source text is attached."}],
+      "pro_source": {
+        "task": "source_check",
+        "source_type": "standard",
+        "source_title": "NFPA 211",
+        "source_status": "reference_only"
+      }
+    },
+    "required_any": [
+      ["cannot provide", "cannot verify", "could not verify", "do not have"],
+      ["edition", "adopted"],
+      ["source text", "controlling source", "standard"]
+    ],
+    "forbidden_patterns": ["NFPA\\s*211\\s*(?:§|section)\\s*\\d"]
+  }
+]
