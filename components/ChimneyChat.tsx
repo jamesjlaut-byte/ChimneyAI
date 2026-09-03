@@ -9,6 +9,7 @@ import ManualVerificationCard,{EMPTY_MANUAL,type ManualVerification} from "@/com
 import ProCaseManager from "@/components/ProCaseManager";
 import SourceManifest from "@/components/SourceManifest";
 import type {SourceProvenanceRecord} from "@/lib/source-provenance";
+import {provenanceFromAttachment} from "@/lib/source-provenance";
 import CloudWorkspace from "@/components/CloudWorkspace";
 import CloudCaseBrowser from "@/components/CloudCaseBrowser";
 
@@ -52,7 +53,21 @@ export default function ChimneyChat({mode}:{mode:Mode}){
     if(selected.length>available)errors.push(`${selected.length-available} file${selected.length-available===1?" was":"s were"} skipped (maximum 6).`);
     setAttachments(next);
     const added=next.length-attachments.length;
-    setAttachmentStatus(errors.length?`${added?`${added} ready. `:""}${errors.join(" ")}`:`${added} attachment${added===1?"":"s"} ready.`);
+    const prepared=next.slice(attachments.length);
+    if(mode==="pro"&&prepared.length){
+      setSourceFiles(current=>{
+        const hashes=new Set(current.map(record=>record.sha256));
+        const records=prepared.flatMap(file=>{
+          if(hashes.has(file.sha256))return [];
+          hashes.add(file.sha256);
+          const role:SourceProvenanceRecord["role"]=file.mime_type==="application/pdf"?"manual":file.kind==="image"?"field_photo":"other";
+          return [provenanceFromAttachment(file,role)];
+        });
+        return records.length?[...current,...records]:current;
+      });
+    }
+    const readyMessage=`${added} attachment${added===1?"":"s"} ready${mode==="pro"&&added?" and recorded in the case manifest":""}.`;
+    setAttachmentStatus(errors.length?`${added?`${readyMessage} `:""}${errors.join(" ")}`:readyMessage);
     if(inputRef.current)inputRef.current.value="";
   }
 

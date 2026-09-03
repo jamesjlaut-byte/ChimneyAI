@@ -23,13 +23,14 @@ export default function SourceManifest({
       const next=await Promise.all(records.map(async r=>{
         const stored=await getStoredSourceFile(r.sha256);
         if(!active)return r;
-        return {...r,storage_status:stored?"persisted_browser":"missing"} as SourceProvenanceRecord;
+        const availableInSession=attachments.some(a=>a.sha256===r.sha256);
+        return {...r,storage_status:stored?"persisted_browser":availableInSession?"session_only":"missing"} as SourceProvenanceRecord;
       }));
       if(active&&JSON.stringify(next)!==JSON.stringify(records))onChange(next);
     })();
     return()=>{active=false};
-  // deliberate: run when hashes change, not on each status mutation
-  },[records.map(r=>r.sha256).join("|")]);
+  // deliberate: run when record or currently attached hashes change, not on each status mutation
+  },[records.map(r=>r.sha256).join("|"),attachments.map(a=>a.sha256).join("|")]);
 
   function add(a:ChatAttachment){
     if(records.some(r=>r.sha256===a.sha256))return;
@@ -161,7 +162,7 @@ export default function SourceManifest({
         </div>
       })}</div>}
       {status&&<div className="vaultStatus">{status}</div>}
-      <p className="manifestFoot">v37 stores exact source bytes in IndexedDB on this browser/device. Saved cases keep the SHA-256 reference. Clearing browser site data can remove these files, so this is not yet cloud archival storage.</p>
+      <p className="manifestFoot">Pro uploads are recorded here automatically with a SHA-256 fingerprint. “Persist bytes” separately stores the exact file in IndexedDB on this browser/device. Clearing browser site data can remove those files, so this is not cloud archival storage.</p>
     </div>
   </details>;
 }
