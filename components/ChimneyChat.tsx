@@ -96,7 +96,14 @@ export default function ChimneyChat({mode}:{mode:Mode}){
       if(!res.ok||!body.ok){
         setAttachments(current=>current.length?current:currentAttachments);
         setText(current=>current||cleaned);
-        setMessages([...next,{role:"assistant",kind:"system_error",content:body.error==="openai_not_configured"?"ChimneyAI is not connected to the model yet. Add the server API key to enable live answers.":"I couldn't complete that request. Your attachments are still available—please try again."}]);
+        const errorMessage=body.error==="openai_not_configured"
+          ?"ChimneyAI is not connected to the model yet. Add the server API key to enable live answers."
+          :body.error==="openai_quota_exceeded"
+            ?"ChimneyAI's AI service needs OpenAI API credits. Your question and attachments are preserved. The site owner must add credits before live answers can resume."
+            :body.error==="model_rate_limited"
+              ?"ChimneyAI's AI service is temporarily busy. Your question and attachments are preserved—wait a moment and try again."
+              :"I couldn't complete that request. Your attachments are still available—please try again.";
+        setMessages([...next,{role:"assistant",kind:"system_error",content:errorMessage}]);
         return;
       }
       setMessages([...next,{role:"assistant",kind:"analysis",content:body.text||"I could not produce a response."}]);

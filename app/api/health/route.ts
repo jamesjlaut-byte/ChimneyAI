@@ -7,7 +7,7 @@ export async function GET(){
 
   return Response.json({
     ok:true,
-    status:openaiConfigured&&!supabaseIncomplete?"ready":"degraded",
+    status:openaiConfigured&&!supabaseIncomplete?"configured":"degraded",
     app:"ChimneyAI",
     modes:["homeowner","pro"],
     capabilities:{
@@ -19,6 +19,7 @@ export async function GET(){
       openai:openaiConfigured?"configured":"missing",
       openai_model:process.env.OPENAI_MODEL?"custom":"default",
       supabase:supabaseIncomplete?"incomplete":supabaseConfigured?"configured":"optional_not_configured"
-    }
+    },
+    note:"Configuration presence only. Provider billing, quota, and request availability are validated when an AI request is made."
   },{headers:{"Cache-Control":"no-store"}});
 }

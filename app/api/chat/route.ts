@@ -138,6 +138,11 @@ Treat this as technician-entered research metadata, not independent proof.`:""),
     return Response.json({ok:true,text:response.output_text||"I could not produce a response."});
   }catch(error:unknown){
     console.error("ChimneyAI model request failed",error instanceof Error?error.message:"Unknown model error");
+    if(error instanceof OpenAI.APIError&&error.status===429){
+      const message=error.message.toLowerCase();
+      const quotaExceeded=message.includes("credit")||message.includes("quota")||error.code==="insufficient_quota";
+      return Response.json({ok:false,error:quotaExceeded?"openai_quota_exceeded":"model_rate_limited"},{status:503});
+    }
     return Response.json({ok:false,error:"model_request_failed"},{status:500});
   }
 }

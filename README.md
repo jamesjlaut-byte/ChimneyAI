@@ -35,7 +35,7 @@ Optional:
 
 The two Supabase variables must be supplied together. Without them, ChimneyAI remains in browser-first mode and local cases, source fingerprints, and the Browser Source File Vault continue to work. Apply the migrations in `supabase/migrations` before enabling cloud cases in production.
 
-`GET /api/health` reports `ready` or `degraded` configuration without returning secret values. A missing OpenAI key or a partial Supabase pair produces `degraded`; fully omitted optional Supabase configuration does not.
+`GET /api/health` reports `configured` or `degraded` configuration without returning secret values. A missing OpenAI key or a partial Supabase pair produces `degraded`; fully omitted optional Supabase configuration does not. The endpoint confirms environment-variable presence only—provider billing, quota, and request availability are validated by an actual AI request.
 
 FlueFire v29 is intentionally not copied into this project. It remains a separate application foundation.
 
