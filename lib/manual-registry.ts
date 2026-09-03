@@ -92,12 +92,20 @@ export const MANUFACTURERS:ManufacturerRegistryEntry[]=[
   }
 ];
 
+function normalizeManufacturer(value:string){
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/&/g," and ")
+    .replace(/[^a-z0-9]+/g," ")
+    .trim()
+    .replace(/\s+/g," ");
+}
+
 export function matchManufacturer(raw:string){
-  const q=raw.trim().toLowerCase();
+  const q=normalizeManufacturer(raw);
   if(!q)return null;
   return MANUFACTURERS.find(m =>
-    m.name.toLowerCase()===q ||
-    m.aliases.some(a=>a.toLowerCase()===q) ||
-    q.includes(m.name.toLowerCase())
+    [m.name,...m.aliases].some(name=>normalizeManufacturer(name)===q)
   )||null;
 }

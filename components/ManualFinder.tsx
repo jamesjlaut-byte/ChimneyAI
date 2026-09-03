@@ -33,7 +33,7 @@ export default function ManualFinder({manufacturer,model,onPrepareQuestion}:{man
       <button className="prepareManualQuestion" type="button" disabled={!exactReady} onClick={()=>onPrepareQuestion(
         `I am verifying ${manufacturer} model ${model}. Using only the exact uploaded manufacturer installation manual/source, identify the controlling instruction for my question. Cite the supplied [Page N] marker, distinguish the manual requirement from my field observation, and tell me if the supplied material is insufficient. Do not substitute a similar model or invent a requirement.`
       )}>Prepare source-controlled question</button>
-      <p className="manualFoot">Current v33 registry intentionally starts small. A manufacturer is added only when its official manual/source workflow is known. This avoids a broad web search being mistaken for product verification.</p>
+      <p className="manualFoot">The registry intentionally includes only manufacturers with a confirmed official manual/source workflow. This avoids a broad web search being mistaken for product verification.</p>
     </div>}
   </div>;
 }

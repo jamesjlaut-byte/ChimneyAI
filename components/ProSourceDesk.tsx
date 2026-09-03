@@ -1,5 +1,5 @@
 "use client";
-import {useState} from "react";
+import {MANUFACTURERS} from "@/lib/manual-registry";
 
 export type ProSourceState={
   task:"general"|"label_scan"|"manual_review"|"source_check"|"report_language";
@@ -47,12 +47,15 @@ export default function ProSourceDesk({value,onChange}:{value:ProSourceState;onC
           <option value="verified_external">Verified externally by app</option>
         </select></label>
         <label>Source title<input value={value.source_title} onChange={e=>set("source_title",e.target.value)} placeholder="Manual / document title"/></label>
-        <label>Manufacturer<input value={value.manufacturer} onChange={e=>set("manufacturer",e.target.value)} placeholder="e.g. Majestic"/></label>
+        <label>Manufacturer<input value={value.manufacturer} onChange={e=>set("manufacturer",e.target.value)} placeholder="Type or select manufacturer" list="known-manufacturers" autoComplete="off"/></label>
         <label>Model<input value={value.model} onChange={e=>set("model",e.target.value)} placeholder="Exact model if known"/></label>
         <label>Serial<input value={value.serial} onChange={e=>set("serial",e.target.value)} placeholder="Serial if visible"/></label>
         <label>Listing / standard mark<input value={value.listing_mark} onChange={e=>set("listing_mark",e.target.value)} placeholder="UL / ULC / ANSI mark if visible"/></label>
         <label>Fuel / appliance<input value={value.fuel_type} onChange={e=>set("fuel_type",e.target.value)} placeholder="Wood, gas, pellet…"/></label>
       </div>
+      <datalist id="known-manufacturers">
+        {MANUFACTURERS.map(manufacturer=><option key={manufacturer.id} value={manufacturer.name}/>)}
+      </datalist>
       <label className="wideSourceLabel">Technical question / verification goal
         <textarea value={value.technician_question} onChange={e=>set("technician_question",e.target.value)}
           placeholder="What exactly are you trying to verify from the controlling source?" rows={3}/>
