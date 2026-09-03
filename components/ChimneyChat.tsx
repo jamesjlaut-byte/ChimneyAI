@@ -32,6 +32,7 @@ export default function ChimneyChat({mode}:{mode:Mode}){
   const [draftReady,setDraftReady]=useState(mode!=="pro"),[draftStatus,setDraftStatus]=useState("");
   const inputRef=useRef<HTMLInputElement>(null),attachmentsRef=useRef(attachments);
   const requestRef=useRef<{id:number;controller:AbortController}|null>(null),nextRequestId=useRef(0);
+  const draftRef=useRef<Parameters<typeof saveProDraft>[0]|null>(null);
   const starters=useMemo(()=>mode==="pro"?starterPro:starterHomeowner,[mode]);
   useEffect(()=>{attachmentsRef.current=attachments},[attachments]);
   useEffect(()=>()=>requestRef.current?.controller.abort(),[]);
@@ -48,6 +49,7 @@ export default function ChimneyChat({mode}:{mode:Mode}){
   useEffect(()=>{
     if(mode!=="pro"||!draftReady)return;
     const draft={text,messages,source:proSource,manual:manualVerification,source_files:sourceFiles};
+    draftRef.current=draft;
     const timer=window.setTimeout(()=>{
       try{
         if(!isMeaningfulProDraft(draft)){clearProDraft();setDraftStatus("");return}
@@ -59,6 +61,22 @@ export default function ChimneyChat({mode}:{mode:Mode}){
     },600);
     return()=>window.clearTimeout(timer);
   },[mode,draftReady,text,messages,proSource,manualVerification,sourceFiles]);
+  useEffect(()=>{
+    if(mode!=="pro"||!draftReady)return;
+    const flush=()=>{
+      const draft=draftRef.current;
+      if(!draft)return;
+      try{isMeaningfulProDraft(draft)?saveProDraft(draft):clearProDraft()}
+      catch{/* The visible autosave path reports storage failures while the page remains active. */}
+    };
+    const flushWhenHidden=()=>{if(document.visibilityState==="hidden")flush()};
+    window.addEventListener("pagehide",flush);
+    document.addEventListener("visibilitychange",flushWhenHidden);
+    return()=>{
+      window.removeEventListener("pagehide",flush);
+      document.removeEventListener("visibilitychange",flushWhenHidden);
+    };
+  },[mode,draftReady]);
   const evidenceChecks=useMemo(()=>{
     const identityFields=[proSource.manufacturer.trim(),proSource.model.trim()];
     const identityCount=identityFields.filter(Boolean).length;
@@ -194,7 +212,7 @@ export default function ChimneyChat({mode}:{mode:Mode}){
 
   function discardActiveDraft(){
     if(!window.confirm("Discard the active Pro draft on this device? Saved Pro Cases and Source File Vault bytes will not be deleted."))return;
-    requestRef.current?.controller.abort();requestRef.current=null;setBusy(false);clearProDraft();
+    requestRef.current?.controller.abort();requestRef.current=null;draftRef.current=null;setBusy(false);clearProDraft();
     setMessages([]);setText("");setAttachments([]);setAttachmentStatus("");setProSource(EMPTY_PRO_SOURCE);
     setManualVerification(EMPTY_MANUAL);setSourceFiles([]);setDraftStatus("");
   }
