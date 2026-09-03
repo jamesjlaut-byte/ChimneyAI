@@ -67,6 +67,7 @@ test("chat request validation enforces modes, limits, hashes, and upload types",
   assert.equal(parseChatRequest(base).success,true);
   assert.equal(parseChatRequest({...base,mode:"admin"}).success,false);
   assert.equal(parseChatRequest({...base,messages:[]}).success,false);
+  assert.equal(parseChatRequest({...base,messages:[{role:"user",content:"Question"},{role:"assistant",content:"Prior answer"}]}).success,false);
   assert.equal(parseChatRequest({...base,messages:[{role:"user",content:"x".repeat(20_001)}]}).success,false);
   assert.equal(parseChatRequest({...base,attachments:Array.from({length:7},()=>({
     kind:"document_text",name:"note.txt",mime_type:"text/plain",text:"evidence"

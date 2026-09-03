@@ -74,6 +74,13 @@ const ChatRequestBody=z.object({
     technician_question:z.string().max(3000).optional()
   }).optional()
 }).superRefine((body,ctx)=>{
+  if(body.messages.at(-1)?.role!=="user"){
+    ctx.addIssue({
+      code:z.ZodIssueCode.custom,
+      path:["messages",body.messages.length-1,"role"],
+      message:"The final chat message must be a user request."
+    });
+  }
   body.attachments?.forEach((attachment,index)=>{
     if(attachment.kind!=="image")return;
     const declaredInDataUrl=attachment.data_url.slice(5,attachment.data_url.indexOf(";"));
