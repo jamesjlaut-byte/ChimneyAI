@@ -53,6 +53,42 @@ export const MANUFACTURERS:ManufacturerRegistryEntry[]=[
     lookup_type:"support_center",
     notes:"Official Napoleon professional support center with product-manual resources.",
     verified_on:"2026-09-02"
+  },
+  {
+    id:"superior",
+    name:"Superior",
+    aliases:["Superior Fireplaces"],
+    official_manual_lookup:"https://superiorfireplaces.us.com/documents/",
+    lookup_type:"manual_index",
+    notes:"Official Superior product-document archive with model and document filters.",
+    verified_on:"2026-09-02"
+  },
+  {
+    id:"harman",
+    name:"Harman",
+    aliases:["Harman Stoves"],
+    official_manual_lookup:"https://forgenflame.com/pages/product-manuals",
+    lookup_type:"manual_index",
+    notes:"Official Forge & Flame manuals library. Open the Harman section for active and legacy product documents.",
+    verified_on:"2026-09-02"
+  },
+  {
+    id:"quadra-fire",
+    name:"Quadra-Fire",
+    aliases:["Quadra Fire","Quadrafire"],
+    official_manual_lookup:"https://forgenflame.com/pages/product-manuals",
+    lookup_type:"manual_index",
+    notes:"Official Forge & Flame manuals library. Open the Quadra-Fire section for active and legacy product documents.",
+    verified_on:"2026-09-02"
+  },
+  {
+    id:"vermont-castings",
+    name:"Vermont Castings",
+    aliases:["Vermont Casting"],
+    official_manual_lookup:"https://forgenflame.com/pages/product-manuals",
+    lookup_type:"manual_index",
+    notes:"Official Forge & Flame manuals library. Open the Vermont Castings section for active and legacy product documents.",
+    verified_on:"2026-09-02"
   }
 ];
 
