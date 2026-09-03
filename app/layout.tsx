@@ -12,7 +12,7 @@ export const metadata:Metadata={
     description:"Chimney intelligence for homeowners and chimney professionals.",
     siteName:"ChimneyAI",
     type:"website",
-    images:[{url:"/assets/chimneyai-official-logo.png",width:2048,height:2048,alt:"ChimneyAI"}]
+    images:[{url:"/assets/chimneyai-official-logo.png",width:1254,height:1254,alt:"ChimneyAI"}]
   },
   twitter:{
     card:"summary_large_image",

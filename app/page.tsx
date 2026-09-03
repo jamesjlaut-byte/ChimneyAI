@@ -4,7 +4,7 @@ import Link from "next/link";
 export default function Home(){
   return <main className="landing">
     <section className="hero">
-      <Image className="heroLogo" src="/assets/chimneyai-official-logo.png" alt="ChimneyAI" width={360} height={360} priority/>
+      <Image className="heroLogo" src="/assets/chimneyai-official-logo.png" alt="ChimneyAI" width={1254} height={1254} sizes="(max-width: 480px) 94vw, (max-width: 1240px) 38vw, 470px" priority/>
       <div className="eyebrow">CHIMNEY INTELLIGENCE</div>
       <h1>One AI. Two very different jobs.</h1>
       <p>Simple chimney and fireplace guidance for homeowners. Technical research and field support for chimney professionals.</p>

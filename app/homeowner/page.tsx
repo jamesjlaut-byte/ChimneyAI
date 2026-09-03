@@ -15,7 +15,7 @@ export default function HomeownerPage(){
   return <main className="appPage">
     <div className="modeHeader">
       <div className="modeIdentity">
-        <Link className="modeLogoLink" href="/" aria-label="Back to ChimneyAI home"><Image className="modeLogo" src="/assets/chimneyai-official-logo.png" alt="ChimneyAI" width={220} height={220} priority/></Link>
+        <Link className="modeLogoLink" href="/" aria-label="Back to ChimneyAI home"><Image className="modeLogo" src="/assets/chimneyai-official-logo.png" alt="ChimneyAI" width={1254} height={1254} sizes="(max-width: 480px) 92vw, (max-width: 760px) 78vw, 220px" priority/></Link>
         <div><div className="eyebrow">FOR HOMEOWNERS</div><h1>ChimneyAI</h1>
         <p>Understand what your chimney professional is telling you—without turning AI into the inspector.</p></div>
       </div>
