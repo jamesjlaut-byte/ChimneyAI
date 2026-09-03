@@ -185,6 +185,8 @@ Fourth increment: a deterministic completion review identifies remaining compone
 
 Photo records, categories, captions, component linkage, raw notes, AI suggestion review, confirm/reject/edit/request-view actions, and finding/recommendation traceability.
 
+First increment: after saving a component finding, the technician can take or select a supported field photo, choose its category, add a factual caption, and persist the exact bytes in the existing browser Source File Vault. ChimneyAI hashes each image with SHA-256 and links the photo/evidence record to both the active system and finding. Existing images can be linked without duplicating bytes, captions/categories remain technician-editable, and no image automatically creates or confirms a defect.
+
 ### Phase 4 — Measurements and source integration
 
 Persist calculator inputs/results/methods, source/manual citations, Appliance Passport manual link, contradiction checks, and deterministic QC foundations.

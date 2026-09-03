@@ -20,6 +20,17 @@ import {isMeaningfulProDraft,parseProDraft,prepareProDraft} from "../lib/pro-dra
 import {sha256Blob} from "../lib/source-file-store.ts";
 import {canTransitionInspectionStatus,normalizeInspection,parseInspections,serializeInspections,upsertInspection,validateInspectionCollectionUpdate} from "../lib/inspections.ts";
 import {firstIncompleteChecklistIndex,getInspectionChecklist,missingChecklistItems} from "../lib/inspection-checklists.ts";
+import {defaultPhotoCategory,MAX_INSPECTION_PHOTO_BYTES,validateInspectionPhoto} from "../lib/inspection-photo.ts";
+
+test("inspection photos use conservative component categories and file limits",()=>{
+  assert.equal(defaultPhotoCategory("firebox"),"firebox");
+  assert.equal(defaultPhotoCategory("appliance_identification"),"data_plate");
+  assert.equal(defaultPhotoCategory("unknown_component"),"other");
+  assert.equal(validateInspectionPhoto({size:1024,type:"image/jpeg"}),null);
+  assert.match(validateInspectionPhoto({size:0,type:"image/jpeg"}),/empty/);
+  assert.match(validateInspectionPhoto({size:MAX_INSPECTION_PHOTO_BYTES+1,type:"image/png"}),/20 MB/);
+  assert.match(validateInspectionPhoto({size:1024,type:"image/svg+xml"}),/JPEG/);
+});
 
 test("guided inspection checklists adapt to system and inspection level",()=>{
   const masonry=getInspectionChecklist("masonry_fireplace","level_1");
