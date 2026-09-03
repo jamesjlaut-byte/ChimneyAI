@@ -77,12 +77,16 @@ export async function listStoredSourceFiles():Promise<StoredSourceFile[]>{
   return out;
 }
 
+export async function sha256Blob(blob:Blob){
+  const bytes=await blob.arrayBuffer();
+  const digest=await crypto.subtle.digest("SHA-256",bytes);
+  return Array.from(new Uint8Array(digest)).map(x=>x.toString(16).padStart(2,"0")).join("");
+}
+
 export async function verifyStoredSourceFile(sha256:string){
   const stored=await getStoredSourceFile(sha256);
   if(!stored)return {exists:false,match:false,computed:null as string|null,stored:null};
-  const bytes=await stored.blob.arrayBuffer();
-  const digest=await crypto.subtle.digest("SHA-256",bytes);
-  const computed=Array.from(new Uint8Array(digest)).map(x=>x.toString(16).padStart(2,"0")).join("");
+  const computed=await sha256Blob(stored.blob);
   return {exists:true,match:computed===sha256,computed,stored};
 }
 
@@ -109,8 +113,7 @@ export async function persistAttachmentBytes(a:ChatAttachment){
 
 export async function persistRawFile(file:File,expectedSha256:string){
   const bytes=await file.arrayBuffer();
-  const digest=await crypto.subtle.digest("SHA-256",bytes);
-  const computed=Array.from(new Uint8Array(digest)).map(x=>x.toString(16).padStart(2,"0")).join("");
+  const computed=await sha256Blob(new Blob([bytes]));
   if(computed!==expectedSha256)throw new Error("Selected file does not match the recorded SHA-256.");
   await putStoredSourceFile({
     sha256:expectedSha256,

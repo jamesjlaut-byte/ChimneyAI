@@ -1,7 +1,7 @@
 import {cloudContentTimestamp,normalizeManual,normalizeProSource,normalizeSavedMessages,normalizeSourceFiles,type ProCase} from "@/lib/pro-cases";
 import type {SourceProvenanceRecord} from "@/lib/source-provenance";
 import {getBrowserSupabase,hasSupabaseConfig} from "@/lib/supabase-client";
-import {getStoredSourceFile,putStoredSourceFile} from "@/lib/source-file-store";
+import {putStoredSourceFile,verifyStoredSourceFile} from "@/lib/source-file-store";
 
 export type SyncMode="browser_only"|"cloud_ready"|"cloud_connected";
 export type SyncResult={
@@ -74,13 +74,20 @@ async function requireUser(){
 
 async function uploadCaseSource(caseId:string,src:SourceProvenanceRecord){
   const supabase=requireCloud();
-  const stored=await getStoredSourceFile(src.sha256);
-  if(!stored)return {uploaded:false,reason:"local_bytes_missing",path:null as string|null};
-  const safeName=stored.name.replace(/[^\w.\-() ]+/g,"_");
+  const verification=await verifyStoredSourceFile(src.sha256);
+  if(!verification.exists)return {uploaded:false,reason:"local_bytes_missing",path:null as string|null};
+  if(!verification.match||!verification.stored){
+    throw new Error(`Source file ${src.file_name} failed SHA-256 verification and was not uploaded.`);
+  }
+  const stored=verification.stored;
+  if(stored.blob.size!==src.byte_size){
+    throw new Error(`Source file ${src.file_name} failed byte-size verification and was not uploaded.`);
+  }
+  const safeName=src.file_name.replace(/[^\w.\-() ]+/g,"_")||"source-file";
   const path=`cases/${caseId}/${src.sha256}/${safeName}`;
   const {error}=await supabase.storage.from("pro-case-sources").upload(path,stored.blob,{
     upsert:false,
-    contentType:stored.mime_type,
+    contentType:src.mime_type,
     cacheControl:"3600"
   });
   if(error && !String(error.message).toLowerCase().includes("already exists"))throw error;

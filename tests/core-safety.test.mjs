@@ -11,6 +11,7 @@ import {HOMEOWNER_SYSTEM_PROMPT,PRO_SYSTEM_PROMPT,promptForMode} from "../lib/pr
 import {proSourceInstruction} from "../lib/pro-source.ts";
 import {checkChatRateLimit} from "../lib/request-rate-limit.ts";
 import {provenanceFromAttachment} from "../lib/source-provenance.ts";
+import {sha256Blob} from "../lib/source-file-store.ts";
 
 test("manufacturer registry resolves canonical names and field aliases",()=>{
   assert.equal(matchManufacturer("Heat-N-Glo")?.id,"heat-glo");
@@ -178,6 +179,12 @@ test("attachment provenance preserves the source fingerprint",()=>{
   assert.equal(record.role,"manual");
   assert.equal(record.storage_status,"session_only");
   assert.equal(record.integrity_status,"unchecked");
+});
+
+test("source blobs are hashed from their exact bytes before cloud use",async()=>{
+  const blob=new Blob(["ChimneyAI exact source bytes"],{type:"text/plain"});
+  assert.equal(await sha256Blob(blob),"2bfb54ec52936b12411769c6b0a92d661c5c004d1770d74f20a49d0c03a7c380");
+  assert.notEqual(await sha256Blob(new Blob(["ChimneyAI changed source bytes"])),await sha256Blob(blob));
 });
 
 test("chat rate limiter allows 20 requests, rejects 21, and resets",()=>{
