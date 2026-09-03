@@ -4,6 +4,7 @@ import {test} from "node:test";
 import {defaultSourceRole} from "../lib/default-source-role.ts";
 import {markLastAttemptFailed,modelHistory,recordableHistory} from "../lib/chat-history.ts";
 import {fieldContextInstruction} from "../lib/chat-context.ts";
+import {finalizeExtractedText,MAX_EXTRACTED_TEXT_CHARS} from "../lib/attachment-text.ts";
 import {MAX_CHAT_REQUEST_BYTES,parseChatRequest} from "../lib/chat-request.ts";
 import {MANUFACTURERS,matchManufacturer} from "../lib/manual-registry.ts";
 import {manualHostMatches,normalizeManualHost,parseManualHttpsUrl,sanitizeManualHttpsUrl} from "../lib/manual-url.ts";
@@ -91,6 +92,19 @@ test("chat request validation enforces modes, limits, hashes, and upload types",
   assert.equal(sanitized.success,true);
   if(sanitized.success)assert.equal(sanitized.data.manual_verification?.official_url,"");
   assert.equal(MAX_CHAT_REQUEST_BYTES,4_000_000);
+});
+
+test("document truncation notices stay inside the server text limit",()=>{
+  const notices=["[Document text truncated by ChimneyAI]","[Only first 60 of 120 pages extracted]"];
+  const bounded=finalizeExtractedText("x".repeat(MAX_EXTRACTED_TEXT_CHARS+500),notices);
+  assert.equal(bounded.length,MAX_EXTRACTED_TEXT_CHARS);
+  assert.ok(bounded.endsWith(notices.join("\n")));
+  const parsed=parseChatRequest({
+    mode:"pro",
+    messages:[{role:"user",content:"Review the attached document."}],
+    attachments:[{kind:"document_text",name:"manual.pdf",mime_type:"application/pdf",text:bounded,text_truncated:true}]
+  });
+  assert.equal(parsed.success,true);
 });
 
 test("source roles remain conservative unless task context is explicit",()=>{

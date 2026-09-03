@@ -1,3 +1,5 @@
+import {finalizeExtractedText,MAX_EXTRACTED_TEXT_CHARS} from "./attachment-text";
+
 export type ChatAttachment = {
   id: string;
   kind: "image" | "document_text";
@@ -105,17 +107,12 @@ export async function prepareAttachment(
 
       let text = parts.join("\n\n");
       const pageCount = pdf.numPages;
-      const text_truncated = text.length > 60000 || pageCount > maxPages;
-
-      if (text.length > 60000) {
-        text =
-          text.slice(0, 60000) +
-          "\n[Document text truncated by ChimneyAI]";
-      }
-
-      if (pageCount > maxPages) {
-        text += `\n[Only first ${maxPages} of ${pageCount} pages extracted]`;
-      }
+      const characterLimitReached = text.length > MAX_EXTRACTED_TEXT_CHARS;
+      const text_truncated = characterLimitReached || pageCount > maxPages;
+      const notices:string[]=[];
+      if(characterLimitReached)notices.push("[Document text truncated by ChimneyAI]");
+      if(pageCount>maxPages)notices.push(`[Only first ${maxPages} of ${pageCount} pages extracted]`);
+      text=finalizeExtractedText(text,notices);
 
       return {
         ...base,
@@ -135,12 +132,10 @@ export async function prepareAttachment(
   ) {
     let text = new TextDecoder().decode(bytes);
 
-    const text_truncated = text.length > 60000;
+    const text_truncated = text.length > MAX_EXTRACTED_TEXT_CHARS;
 
     if (text_truncated) {
-      text =
-        text.slice(0, 60000) +
-        "\n[Document text truncated]";
+      text=finalizeExtractedText(text,["[Document text truncated]"]);
     }
 
     return {
