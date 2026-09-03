@@ -50,7 +50,7 @@ export default function InspectionRunner({inspection,onChange,onDirtyChange}:{in
     const candidate=normalizeInspection({...inspection,status:inspection.status==="draft"||inspection.status==="ready_for_review"?"in_progress":inspection.status,findings:[...inspection.findings.filter(finding=>finding.id!==nextFinding.id),nextFinding],updated_at:now});
     if(!candidate){setMessage("This component could not be saved. Review the inspection setup and try again.");return}
     try{
-      saveInspections(upsertInspection(loadInspections(),candidate));onChange(candidate);setMessage("Component saved on this device.");
+      saveInspections(upsertInspection(loadInspections(),candidate,inspection));onChange(candidate);setMessage("Component saved on this device.");
       if(step<checklist.length-1)setStep(value=>value+1);
     }catch(error){setMessage(error instanceof Error?error.message:"This component could not be saved in this browser.")}
   }
@@ -59,7 +59,7 @@ export default function InspectionRunner({inspection,onChange,onDirtyChange}:{in
     if(missing.length||hasUnsavedChanges||inspection.status!=="in_progress")return;
     const candidate=normalizeInspection({...inspection,status:"ready_for_review",updated_at:new Date().toISOString()});
     if(!candidate){setMessage("The inspection could not be prepared for review.");return}
-    try{saveInspections(upsertInspection(loadInspections(),candidate));onChange(candidate);setMessage("Inspection marked ready for technician review.")}
+    try{saveInspections(upsertInspection(loadInspections(),candidate,inspection));onChange(candidate);setMessage("Inspection marked ready for technician review.")}
     catch(error){setMessage(error instanceof Error?error.message:"The inspection could not be prepared for review.")}
   }
 

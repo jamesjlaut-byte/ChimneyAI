@@ -50,7 +50,7 @@ export default function InspectionSetup(){
       report:active?.report||{status:"not_started",signature_status:"not_requested",revision:0}
     });
     if(!candidate){setStatus("Inspection setup could not be saved. Review the required fields and try again.");return}
-    try{saveInspections(upsertInspection(loadInspections(),candidate));setActive(candidate);setStatus(active?.status==="ready_for_review"?"Setup saved. Review reopened: check the component checklist before marking ready again.":"Inspection setup saved on this device. Continue with the component checklist below.")}
+    try{saveInspections(upsertInspection(loadInspections(),candidate,active||undefined));setActive(candidate);setStatus(active?.status==="ready_for_review"?"Setup saved. Review reopened: check the component checklist before marking ready again.":"Inspection setup saved on this device. Continue with the component checklist below.")}
     catch(error){setStatus(error instanceof Error?error.message:"Inspection setup could not be saved in this browser.")}
   }
 

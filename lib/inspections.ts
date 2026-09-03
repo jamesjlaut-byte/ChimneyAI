@@ -253,7 +253,7 @@ export function upsertInspection(inspections:Inspection[],incoming:Inspection,ex
   if(expected){
     const current=inspections.find(item=>item.id===normalized.id);
     if(expected.id!==normalized.id||!current||JSON.stringify(normalizeInspection(current))!==JSON.stringify(normalizeInspection(expected))){
-      throw new Error("The inspection changed while this update was being prepared. Newer work was preserved. Reopen the inspection and retry the photo update.");
+      throw new Error("The inspection changed while this update was being prepared. Newer work was preserved. Copy any unsaved notes or captions, then reload the page and retry your update.");
     }
   }
   const next=[normalized,...inspections.filter(item=>item.id!==normalized.id)]

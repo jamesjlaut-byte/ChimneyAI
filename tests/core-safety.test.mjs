@@ -79,6 +79,13 @@ test("inspection setup cannot remount a checklist with unsaved component edits",
   assert.ok(runner.includes('onDirtyChange?.(hasUnsavedChanges)'));
 });
 
+test("every existing guided inspection save checks its loaded version",()=>{
+  const runner=readFileSync(new URL("../components/InspectionRunner.tsx",import.meta.url),"utf8");
+  const setup=readFileSync(new URL("../components/InspectionSetup.tsx",import.meta.url),"utf8");
+  assert.equal(runner.split("upsertInspection(loadInspections(),candidate,inspection)").length-1,2);
+  assert.ok(setup.includes("upsertInspection(loadInspections(),candidate,active||undefined)"));
+});
+
 test("manufacturer registry resolves canonical names and field aliases",()=>{
   assert.equal(matchManufacturer("Heat-N-Glo")?.id,"heat-glo");
   assert.equal(matchManufacturer("M&G DuraVent")?.id,"duravent");
