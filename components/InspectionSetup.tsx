@@ -22,6 +22,7 @@ export default function InspectionSetup(){
   const [streetAddress,setStreetAddress]=useState(""),[city,setCity]=useState(""),[state,setState]=useState(""),[postalCode,setPostalCode]=useState("");
   const [systemName,setSystemName]=useState("Primary system"),[systemType,setSystemType]=useState<SystemType>("masonry_fireplace");
   const [inspectionType,setInspectionType]=useState<InspectionType>("level_1");
+  const [componentDirty,setComponentDirty]=useState(false);
 
   useEffect(()=>{
     const existing=loadInspections().find(item=>item.status==="draft"||item.status==="in_progress"||item.status==="ready_for_review");
@@ -35,6 +36,7 @@ export default function InspectionSetup(){
 
   function saveSetup(event:FormEvent<HTMLFormElement>){
     event.preventDefault();
+    if(componentDirty){setStatus("Save the current component note and status before changing inspection setup.");return}
     const now=new Date().toISOString(),customerId=active?.customer.id||newId("customer"),propertyId=active?.property.id||newId("property");
     const priorSystem=active?.systems[0],systemId=priorSystem?.id||newId("system");
     const candidate=normalizeInspection({
@@ -68,9 +70,9 @@ export default function InspectionSetup(){
         <label>System type<select value={systemType} onChange={event=>setSystemType(event.target.value as SystemType)}>{SYSTEM_OPTIONS.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
         <label>Inspection type<select value={inspectionType} onChange={event=>setInspectionType(event.target.value as InspectionType)}>{INSPECTION_OPTIONS.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
       </div>
-      <div className="inspectionSetupActions"><span role="status" aria-live="polite">{status}</span><button type="submit">{active?"Save setup":"Start inspection"}</button></div>
+      <div className="inspectionSetupActions"><span role="status" aria-live="polite">{componentDirty?"Save the current component note and status before changing inspection setup.":status}</span><button type="submit" disabled={componentDirty}>{active?"Save setup":"Start inspection"}</button></div>
       <p>Browser-first draft. AI assists; the technician controls observations, findings, and final conclusions.</p>
     </form>
-    {active?<InspectionRunner key={`${active.systems[0]?.id}:${active.systems[0]?.system_type}:${active.inspection_type}`} inspection={active} onChange={setActive}/>:null}
+    {active?<InspectionRunner key={`${active.systems[0]?.id}:${active.systems[0]?.system_type}:${active.inspection_type}`} inspection={active} onChange={setActive} onDirtyChange={setComponentDirty}/>:null}
   </details>;
 }

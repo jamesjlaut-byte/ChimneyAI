@@ -11,7 +11,7 @@ const STATUS_OPTIONS:ReadonlyArray<{value:FindingStatus;label:string}>=[
   {value:"further_evaluation_recommended",label:"Further evaluation recommended"},{value:"unable_to_inspect",label:"Unable to inspect"},{value:"not_applicable",label:"Not applicable"}
 ];
 
-export default function InspectionRunner({inspection,onChange}:{inspection:Inspection;onChange:(inspection:Inspection)=>void}){
+export default function InspectionRunner({inspection,onChange,onDirtyChange}:{inspection:Inspection;onChange:(inspection:Inspection)=>void;onDirtyChange?:(dirty:boolean)=>void}){
   const system=inspection.systems[0];
   const checklist=useMemo(()=>system?getInspectionChecklist(system.system_type,inspection.inspection_type):[],[system,inspection.inspection_type]);
   const [step,setStep]=useState(()=>firstIncompleteChecklistIndex(checklist,inspection.findings.filter(finding=>finding.system_id===system?.id).map(finding=>finding.component))),[findingStatus,setFindingStatus]=useState<FindingStatus|"">(""),[note,setNote]=useState(""),[message,setMessage]=useState("");
@@ -25,6 +25,8 @@ export default function InspectionRunner({inspection,onChange}:{inspection:Inspe
   const systemPhotos=inspection.photos.filter(photo=>photo.system_id===system?.id);
   const photoGaps=recommendedPhotoGaps(checklist,systemFindings,systemPhotos);
   const hasUnsavedChanges=findingStatus!==(existing?.status||"")||note!==(existing?.raw_note||"");
+
+  useEffect(()=>{onDirtyChange?.(hasUnsavedChanges)},[hasUnsavedChanges,onDirtyChange]);
 
   useEffect(()=>{
     setFindingStatus(existing?.status||"");setNote(existing?.raw_note||"");setMessage("");

@@ -70,6 +70,15 @@ test("saving reviewed inspection setup reopens component review",()=>{
   assert.equal(canTransitionInspectionStatus("ready_for_review","in_progress"),true);
 });
 
+test("inspection setup cannot remount a checklist with unsaved component edits",()=>{
+  const setup=readFileSync(new URL("../components/InspectionSetup.tsx",import.meta.url),"utf8");
+  const runner=readFileSync(new URL("../components/InspectionRunner.tsx",import.meta.url),"utf8");
+  assert.ok(setup.includes('if(componentDirty){setStatus('));
+  assert.ok(setup.includes('disabled={componentDirty}'));
+  assert.ok(setup.includes('onDirtyChange={setComponentDirty}'));
+  assert.ok(runner.includes('onDirtyChange?.(hasUnsavedChanges)'));
+});
+
 test("manufacturer registry resolves canonical names and field aliases",()=>{
   assert.equal(matchManufacturer("Heat-N-Glo")?.id,"heat-glo");
   assert.equal(matchManufacturer("M&G DuraVent")?.id,"duravent");
