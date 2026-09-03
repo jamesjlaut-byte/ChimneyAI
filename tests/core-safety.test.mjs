@@ -396,6 +396,14 @@ test("inspection revision RLS verifies ownership of the parent inspection",()=>{
   assert.match(migration,/create policy "owners create own inspection revisions"[\s\S]*?with check[\s\S]*?exists/);
 });
 
+test("finalized cloud inspections require a higher revision and cannot be deleted",()=>{
+  const migration=readFileSync(new URL("../supabase/migrations/0005_protect_finalized_inspections.sql",import.meta.url),"utf8");
+  assert.match(migration,/old\.signature_status = 'signed' or old\.report_status = 'delivered'/);
+  assert.match(migration,/if tg_op = 'DELETE' then[\s\S]*?raise exception 'Signed or delivered inspections cannot be deleted'/);
+  assert.match(migration,/if new_revision <= old_revision then[\s\S]*?raise exception 'Signed or delivered inspection changes require a higher report revision'/);
+  assert.match(migration,/before update or delete on public\.inspections/);
+});
+
 test("Pro cloud child rows verify ownership of their parent case",()=>{
   const migration=readFileSync(new URL("../supabase/migrations/0004_harden_pro_case_ownership.sql",import.meta.url),"utf8");
   const sourceChecks=migration.match(/parent_case\.id=pro_case_sources\.case_id and parent_case\.owner_id=auth\.uid\(\)/g)||[];

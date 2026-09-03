@@ -208,6 +208,7 @@ Structured label OCR, chimney-specific photo classification/second look, voice c
 - AI finding and photo-category confidence is restricted to low/moderate/high and remains absent when no suggestion exists.
 - Signed or delivered records cannot be replaced without advancing the report revision, and incomplete signature/delivery states are conservatively downgraded.
 - Whole-collection browser saves enforce the same revision rules and cannot silently delete a signed or delivered inspection.
+- Cloud persistence rejects deletion of signed or delivered inspections and requires a higher report revision before changing their aggregate.
 - A measurement records unit, method, confidence, and technician verification independently.
 - Verified measurements require a finite value, measurement type, unit, verifier identity, and verification timestamp; incomplete camera claims remain estimates.
 - A photo/evidence relation references a valid source SHA-256 without copying bytes.
