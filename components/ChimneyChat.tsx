@@ -15,7 +15,7 @@ import CloudCaseBrowser from "@/components/CloudCaseBrowser";
 import {modelsConflict} from "@/lib/model-identity";
 import MessageContent from "@/components/MessageContent";
 import {defaultSourceRole} from "@/lib/default-source-role";
-import {modelHistory,type ChatHistoryMessage} from "@/lib/chat-history";
+import {markLastAttemptFailed,modelHistory,type ChatHistoryMessage} from "@/lib/chat-history";
 
 type Mode="homeowner"|"pro"; type Msg=ChatHistoryMessage;
 const starterHomeowner=["Explain this inspection report to me.","What does this repair recommendation mean?","What should I ask before hiring a chimney sweep?","Can you explain what you can see in a fireplace photo?"];
@@ -122,14 +122,14 @@ export default function ChimneyChat({mode}:{mode:Mode}){
               :body.error==="request_rate_limited"
                 ?"Too many questions were submitted from this connection in a short time. Your question and attachments are preserved—wait about a minute and try again."
               :"I couldn't complete that request. Your attachments are still available—please try again.";
-        setMessages([...next,{role:"assistant",kind:"system_error",content:errorMessage}]);
+        setMessages([...markLastAttemptFailed(next),{role:"assistant",kind:"system_error",content:errorMessage}]);
         return;
       }
       setMessages([...next,{role:"assistant",kind:"analysis",content:body.text||"I could not produce a response."}]);
       if(currentAttachments.length)setAttachmentStatus(`${currentAttachments.length} active source attachment${currentAttachments.length===1?" remains":"s remain"} available for follow-up questions.`);
     }catch{
       setText(current=>current||cleaned);
-      setMessages([...next,{role:"assistant",kind:"system_error",content:"ChimneyAI could not reach the service. Your attachments are still available—check your connection and try again."}]);
+      setMessages([...markLastAttemptFailed(next),{role:"assistant",kind:"system_error",content:"ChimneyAI could not reach the service. Your attachments are still available—check your connection and try again."}]);
     }finally{
       setBusy(false);
     }

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import {test} from "node:test";
 
 import {defaultSourceRole} from "../lib/default-source-role.ts";
-import {modelHistory} from "../lib/chat-history.ts";
+import {markLastAttemptFailed,modelHistory} from "../lib/chat-history.ts";
 import {MAX_CHAT_REQUEST_BYTES,parseChatRequest} from "../lib/chat-request.ts";
 import {MANUFACTURERS,matchManufacturer} from "../lib/manual-registry.ts";
 import {modelsConflict,normalizeModelIdentifier} from "../lib/model-identity.ts";
@@ -21,8 +21,15 @@ test("manufacturer registry resolves canonical names and field aliases",()=>{
 });
 
 test("model history excludes client service errors and keeps the latest valid context",()=>{
-  const history=[
+  const attempted=[
     {role:"user",content:"First question"},
+    {role:"user",content:"Failed question"}
+  ];
+  const failed=markLastAttemptFailed(attempted);
+  assert.equal(failed[1].kind,"failed_user");
+  assert.equal(attempted[1].kind,undefined);
+  const history=[
+    ...failed,
     {role:"assistant",kind:"system_error",content:"Service unavailable"},
     {role:"user",content:"Retry question"},
     {role:"assistant",kind:"analysis",content:"Technical answer"}
