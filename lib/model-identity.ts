@@ -4,5 +4,8 @@ export function normalizeModelIdentifier(value:string){
 
 export function modelsConflict(applianceModel?:string,manualModel?:string){
   if(!applianceModel?.trim()||!manualModel?.trim())return false;
-  return normalizeModelIdentifier(applianceModel)!==normalizeModelIdentifier(manualModel);
+  const appliance=normalizeModelIdentifier(applianceModel);
+  const manual=normalizeModelIdentifier(manualModel);
+  if(!appliance||!manual)return true;
+  return appliance!==manual;
 }
