@@ -65,16 +65,15 @@ export function normalizeManual(value:unknown):ManualVerification{
   return Object.fromEntries(Object.keys(MANUAL_DEFAULTS).map(key=>[key,text(x[key])])) as unknown as ManualVerification;
 }
 
-function normalizeCase(value:unknown):ProCase|null{
-  const x=record(value),id=text(x.id);
-  if(!id)return null;
-  const source=normalizeProSource(x.source),manual=normalizeManual(x.manual);
-  const created=text(x.created_at)||new Date().toISOString();
-  const messages=Array.isArray(x.messages)?x.messages.flatMap(item=>{
+export function normalizeSavedMessages(value:unknown,fallbackCreatedAt:string):SavedMessage[]{
+  return Array.isArray(value)?value.flatMap(item=>{
     const m=record(item),role=m.role;
-    return (role==="user"||role==="assistant")&&text(m.content)?[{role,content:text(m.content),created_at:text(m.created_at)||created} satisfies SavedMessage]:[];
+    return (role==="user"||role==="assistant")&&text(m.content)?[{role,content:text(m.content),created_at:text(m.created_at)||fallbackCreatedAt} satisfies SavedMessage]:[];
   }):[];
-  const sourceFiles:SourceProvenanceRecord[]=Array.isArray(x.source_files)?x.source_files.flatMap(item=>{
+}
+
+export function normalizeSourceFiles(value:unknown,fallbackCreatedAt:string):SourceProvenanceRecord[]{
+  return Array.isArray(value)?value.flatMap(item=>{
     const s=record(item),sha256=text(s.sha256);
     if(!/^[a-f0-9]{64}$/i.test(sha256))return [];
     const role=SOURCE_ROLES.has(s.role as SourceProvenanceRecord["role"])?s.role as SourceProvenanceRecord["role"]:"other";
@@ -82,7 +81,7 @@ function normalizeCase(value:unknown):ProCase|null{
       attachment_id:text(s.attachment_id)||`legacy:${sha256}`,
       file_name:text(s.file_name)||"Saved source file",mime_type:text(s.mime_type)||"application/octet-stream",
       byte_size:typeof s.byte_size==="number"&&Number.isFinite(s.byte_size)?s.byte_size:0,
-      sha256,prepared_at:text(s.prepared_at)||created,
+      sha256,prepared_at:text(s.prepared_at)||fallbackCreatedAt,
       page_count:typeof s.page_count==="number"&&s.page_count>0?s.page_count:undefined,
       text_truncated:Boolean(s.text_truncated),role,note:text(s.note),
       storage_status:s.storage_status==="session_only"||s.storage_status==="persisted_browser"||s.storage_status==="missing"?s.storage_status:"missing",
@@ -90,6 +89,15 @@ function normalizeCase(value:unknown):ProCase|null{
       integrity_status:s.integrity_status==="unchecked"||s.integrity_status==="verified"||s.integrity_status==="mismatch"||s.integrity_status==="missing"?s.integrity_status:"unchecked"
     }];
   }):[];
+}
+
+function normalizeCase(value:unknown):ProCase|null{
+  const x=record(value),id=text(x.id);
+  if(!id)return null;
+  const source=normalizeProSource(x.source),manual=normalizeManual(x.manual);
+  const created=text(x.created_at)||new Date().toISOString();
+  const messages=normalizeSavedMessages(x.messages,created);
+  const sourceFiles=normalizeSourceFiles(x.source_files,created);
   const cloudRecord=record(x.cloud);
   const syncState=cloudRecord.sync_state;
   const cloud:CloudCaseMeta={

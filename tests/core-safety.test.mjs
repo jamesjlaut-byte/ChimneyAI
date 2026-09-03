@@ -6,7 +6,7 @@ import {markLastAttemptFailed,modelHistory,recordableHistory} from "../lib/chat-
 import {MAX_CHAT_REQUEST_BYTES,parseChatRequest} from "../lib/chat-request.ts";
 import {MANUFACTURERS,matchManufacturer} from "../lib/manual-registry.ts";
 import {modelsConflict,normalizeModelIdentifier} from "../lib/model-identity.ts";
-import {compareCaseVersions,normalizeManual,normalizeProSource,upsertLocalCase} from "../lib/pro-cases.ts";
+import {compareCaseVersions,normalizeManual,normalizeProSource,normalizeSavedMessages,normalizeSourceFiles,upsertLocalCase} from "../lib/pro-cases.ts";
 import {HOMEOWNER_SYSTEM_PROMPT,PRO_SYSTEM_PROMPT,promptForMode} from "../lib/prompts.ts";
 import {proSourceInstruction} from "../lib/pro-source.ts";
 import {checkChatRateLimit} from "../lib/request-rate-limit.ts";
@@ -122,6 +122,25 @@ test("pro source and manual inputs reject unsupported shapes",()=>{
   assert.equal(manual.manual_title,"Listed manual");
   assert.equal(manual.official_url,"");
   assert.equal(manual.relevant_pages,"");
+});
+
+test("cloud and browser case records share strict message and source normalization",()=>{
+  const created="2026-09-02T12:00:00.000Z";
+  assert.deepEqual(normalizeSavedMessages([
+    {role:"user",content:"Field observation",created_at:created,unexpected:"ignored"},
+    {role:"system",content:"Injected role"},
+    {role:"assistant",content:""}
+  ],created),[{role:"user",content:"Field observation",created_at:created}]);
+
+  const sources=normalizeSourceFiles([
+    {sha256:"a".repeat(64),role:"invented",byte_size:Infinity,integrity_status:"trusted"},
+    {sha256:"bad",role:"manual",byte_size:100}
+  ],created);
+  assert.equal(sources.length,1);
+  assert.equal(sources[0].role,"other");
+  assert.equal(sources[0].byte_size,0);
+  assert.equal(sources[0].integrity_status,"unchecked");
+  assert.equal(sources[0].storage_status,"missing");
 });
 
 test("case version comparison exposes conflicts instead of guessing",()=>{

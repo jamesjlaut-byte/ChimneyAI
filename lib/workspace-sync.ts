@@ -1,4 +1,4 @@
-import {normalizeManual,normalizeProSource,type ProCase} from "@/lib/pro-cases";
+import {normalizeManual,normalizeProSource,normalizeSavedMessages,normalizeSourceFiles,type ProCase} from "@/lib/pro-cases";
 import type {SourceProvenanceRecord} from "@/lib/source-provenance";
 import {getBrowserSupabase,hasSupabaseConfig} from "@/lib/supabase-client";
 import {getStoredSourceFile,putStoredSourceFile} from "@/lib/source-file-store";
@@ -186,40 +186,41 @@ export async function fetchCloudCase(remoteCaseId:string):Promise<ProCase>{
     .order("created_at",{ascending:true});
   if(sourceError)throw sourceError;
 
-  const sourceFiles:SourceProvenanceRecord[]=((sources||[]) as unknown[]).map(row=>{
+  const caseRecord=record(c);
+  const sourceFiles=normalizeSourceFiles(((sources||[]) as unknown[]).map(row=>{
     const s=record(row);
     return {
       attachment_id:`cloud:${text(s.id)}`,file_name:text(s.file_name)||"Cloud source",mime_type:text(s.mime_type)||"application/octet-stream",
       byte_size:Number(s.byte_size||0),sha256:text(s.sha256),prepared_at:text(s.created_at),
       page_count:typeof s.page_count==="number"?s.page_count:undefined,text_truncated:Boolean(s.text_truncated),
-      role:(s.source_role||"other") as SourceProvenanceRecord["role"],note:text(s.technician_note),
+      role:s.source_role,note:text(s.technician_note),
       storage_status:"missing",integrity_status:"unchecked",persisted_at:undefined
     };
-  });
+  }),text(caseRecord.created_at)||new Date().toISOString());
 
   return {
-    id:c.client_case_id,
-    title:c.title,
-    created_at:c.created_at,
-    updated_at:c.client_updated_at||c.updated_at,
-    manufacturer:c.manufacturer||"",
-    model:c.model||"",
-    serial:c.serial||"",
-    appliance_type:c.appliance_type||"",
-    technical_question:c.technical_question||"",
-    notes:c.notes||"",
-    source:normalizeProSource(c.source_json),
-    manual:normalizeManual(c.manual_json),
-    manual_identity_hash:c.manual_identity_hash||undefined,
-    messages:Array.isArray(c.conversation_json)?c.conversation_json:[],
+    id:text(caseRecord.client_case_id),
+    title:text(caseRecord.title)||"Untitled cloud case",
+    created_at:text(caseRecord.created_at)||new Date().toISOString(),
+    updated_at:text(caseRecord.client_updated_at)||text(caseRecord.updated_at)||new Date().toISOString(),
+    manufacturer:text(caseRecord.manufacturer),
+    model:text(caseRecord.model),
+    serial:text(caseRecord.serial),
+    appliance_type:text(caseRecord.appliance_type),
+    technical_question:text(caseRecord.technical_question),
+    notes:text(caseRecord.notes),
+    source:normalizeProSource(caseRecord.source_json),
+    manual:normalizeManual(caseRecord.manual_json),
+    manual_identity_hash:text(caseRecord.manual_identity_hash)||undefined,
+    messages:normalizeSavedMessages(caseRecord.conversation_json,text(caseRecord.created_at)||new Date().toISOString()),
     source_files:sourceFiles,
     cloud:{
-      remote_case_id:c.id,
+      remote_case_id:text(caseRecord.id),
       last_cloud_sync_at:new Date().toISOString(),
-      cloud_updated_at:c.updated_at,
+      cloud_updated_at:text(caseRecord.updated_at),
       sync_state:"synced"
     }
-  } as ProCase;
+  };
 }
 
 export async function restoreCloudSourceToVault(remoteCaseId:string,sha256:string){
