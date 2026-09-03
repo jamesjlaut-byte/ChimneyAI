@@ -82,47 +82,52 @@ export async function prepareAttachment(
     // asset without relying on the removed `disableWorker` option.
     const pdfjs = await import("pdfjs-dist/webpack.mjs");
 
-    const pdf = await pdfjs.getDocument({
+    const loadingTask = pdfjs.getDocument({
       data: new Uint8Array(bytes),
-    }).promise;
+    });
 
-    const parts: string[] = [];
-    const maxPages = Math.min(pdf.numPages, 60);
+    try {
+      const pdf = await loadingTask.promise;
+      const parts: string[] = [];
+      const maxPages = Math.min(pdf.numPages, 60);
 
-    for (let pageNumber = 1; pageNumber <= maxPages; pageNumber++) {
-      const page = await pdf.getPage(pageNumber);
-      const textContent = await page.getTextContent();
+      for (let pageNumber = 1; pageNumber <= maxPages; pageNumber++) {
+        const page = await pdf.getPage(pageNumber);
+        const textContent = await page.getTextContent();
 
-      const pageText = textContent.items
-        .map((item) => ("str" in item ? item.str : ""))
-        .join(" ");
+        const pageText = textContent.items
+          .map((item) => ("str" in item ? item.str : ""))
+          .join(" ");
 
-      parts.push(`[Page ${pageNumber}]\n${pageText}`);
+        parts.push(`[Page ${pageNumber}]\n${pageText}`);
+        page.cleanup();
+      }
+
+      let text = parts.join("\n\n");
+      const pageCount = pdf.numPages;
+      const text_truncated = text.length > 60000 || pageCount > maxPages;
+
+      if (text.length > 60000) {
+        text =
+          text.slice(0, 60000) +
+          "\n[Document text truncated by ChimneyAI]";
+      }
+
+      if (pageCount > maxPages) {
+        text += `\n[Only first ${maxPages} of ${pageCount} pages extracted]`;
+      }
+
+      return {
+        ...base,
+        kind: "document_text",
+        mime_type: "application/pdf",
+        text,
+        page_count: pageCount,
+        text_truncated,
+      };
+    } finally {
+      await loadingTask.destroy();
     }
-
-    let text = parts.join("\n\n");
-
-    const text_truncated =
-      text.length > 60000 || pdf.numPages > maxPages;
-
-    if (text.length > 60000) {
-      text =
-        text.slice(0, 60000) +
-        "\n[Document text truncated by ChimneyAI]";
-    }
-
-    if (pdf.numPages > maxPages) {
-      text += `\n[Only first ${maxPages} of ${pdf.numPages} pages extracted]`;
-    }
-
-    return {
-      ...base,
-      kind: "document_text",
-      mime_type: "application/pdf",
-      text,
-      page_count: pdf.numPages,
-      text_truncated,
-    };
   }
 
   if (
