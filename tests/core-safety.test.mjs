@@ -345,6 +345,16 @@ test("inspection revision RLS verifies ownership of the parent inspection",()=>{
   assert.match(migration,/create policy "owners create own inspection revisions"[\s\S]*?with check[\s\S]*?exists/);
 });
 
+test("Pro cloud child rows verify ownership of their parent case",()=>{
+  const migration=readFileSync(new URL("../supabase/migrations/0004_harden_pro_case_ownership.sql",import.meta.url),"utf8");
+  const sourceChecks=migration.match(/parent_case\.id=pro_case_sources\.case_id and parent_case\.owner_id=auth\.uid\(\)/g)||[];
+  const revisionChecks=migration.match(/parent_case\.id=pro_case_revisions\.case_id and parent_case\.owner_id=auth\.uid\(\)/g)||[];
+  assert.equal(sourceChecks.length,5);
+  assert.equal(revisionChecks.length,2);
+  assert.match(migration,/create policy "owners create own case sources"[\s\S]*?with check/);
+  assert.match(migration,/create policy "owners update own case sources"[\s\S]*?using[\s\S]*?with check/);
+});
+
 test("attachment provenance preserves the source fingerprint",()=>{
   const attachment={
     id:"attachment-1",name:"manual.pdf",kind:"pdf",mime_type:"application/pdf",

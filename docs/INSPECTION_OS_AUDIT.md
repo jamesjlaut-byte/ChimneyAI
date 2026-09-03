@@ -209,4 +209,5 @@ Structured label OCR, chimney-specific photo classification/second look, voice c
 - A photo/evidence relation references a valid source SHA-256 without copying bytes.
 - Existing cloud tables remain intact; new inspection tables are additive and owner-scoped.
 - Inspection revision RLS verifies both the revision owner and ownership of its referenced parent inspection.
+- A forward migration applies the same parent-ownership requirement to legacy Pro Case source and revision rows.
 - Type check, tests, production build, Pro evals, mobile/desktop smoke checks, saved-case recovery, file-vault recovery, and unconfigured-cloud fallback pass.
