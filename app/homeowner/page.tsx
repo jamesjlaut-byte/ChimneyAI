@@ -1,6 +1,15 @@
 import Image from "next/image";
 import Link from "next/link";
+import type {Metadata} from "next";
 import ChimneyChat from "@/components/ChimneyChat";
+
+export const metadata:Metadata={
+  title:"ChimneyAI Homeowner",
+  description:"Understand chimney inspections, repairs, terminology, and questions to ask with homeowner-focused AI guidance.",
+  alternates:{canonical:"/homeowner"},
+  openGraph:{title:"ChimneyAI Homeowner",description:"Homeowner-focused chimney and fireplace guidance.",url:"/homeowner",images:["/assets/chimneyai-official-logo.png"]},
+  twitter:{title:"ChimneyAI Homeowner",description:"Homeowner-focused chimney and fireplace guidance.",images:["/assets/chimneyai-official-logo.png"]}
+};
 
 export default function HomeownerPage(){
   return <main className="appPage">

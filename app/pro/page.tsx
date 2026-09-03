@@ -1,6 +1,15 @@
 import Image from "next/image";
 import Link from "next/link";
+import type {Metadata} from "next";
 import ChimneyChat from "@/components/ChimneyChat";
+
+export const metadata:Metadata={
+  title:"ChimneyAI Pro",
+  description:"Evidence-aware chimney technical research, manufacturer documentation, calculations, and professional field support.",
+  alternates:{canonical:"/pro"},
+  openGraph:{title:"ChimneyAI Pro",description:"Evidence-aware technical support for chimney professionals.",url:"/pro",images:["/assets/chimneyai-official-logo.png"]},
+  twitter:{title:"ChimneyAI Pro",description:"Evidence-aware technical support for chimney professionals.",images:["/assets/chimneyai-official-logo.png"]}
+};
 
 export default function ProPage(){
   return <main className="appPage proPage">

@@ -4,8 +4,22 @@ import AudienceNav from "@/components/AudienceNav";
 import SiteFooter from "@/components/SiteFooter";
 
 export const metadata:Metadata={
+  metadataBase:new URL("https://chimney-ai.vercel.app"),
   title:"ChimneyAI",
-  description:"AI help for homeowners and chimney professionals"
+  description:"Chimney intelligence for homeowners and chimney professionals.",
+  openGraph:{
+    title:"ChimneyAI",
+    description:"Chimney intelligence for homeowners and chimney professionals.",
+    siteName:"ChimneyAI",
+    type:"website",
+    images:[{url:"/assets/chimneyai-official-logo.png",width:2048,height:2048,alt:"ChimneyAI"}]
+  },
+  twitter:{
+    card:"summary_large_image",
+    title:"ChimneyAI",
+    description:"Chimney intelligence for homeowners and chimney professionals.",
+    images:["/assets/chimneyai-official-logo.png"]
+  }
 };
 
 export default function RootLayout({children}:{children:React.ReactNode}){
