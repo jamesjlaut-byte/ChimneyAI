@@ -24,3 +24,8 @@ export function getInspectionChecklist(systemType:SystemType,inspectionType:Insp
   const combined=[...SHARED,...SYSTEM_ITEMS[systemType],...(inspectionType==="level_2"?LEVEL_TWO:[])];
   return combined.filter((entry,index)=>combined.findIndex(candidate=>candidate.id===entry.id)===index);
 }
+
+export function firstIncompleteChecklistIndex(checklist:InspectionChecklistItem[],completedComponentIds:Iterable<string>):number{
+  const completed=new Set(completedComponentIds),index=checklist.findIndex(item=>!completed.has(item.id));
+  return index<0?Math.max(checklist.length-1,0):index;
+}

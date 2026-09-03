@@ -1,6 +1,6 @@
 "use client";
 import {useEffect,useMemo,useState,type FormEvent} from "react";
-import {getInspectionChecklist} from "@/lib/inspection-checklists";
+import {firstIncompleteChecklistIndex,getInspectionChecklist} from "@/lib/inspection-checklists";
 import {loadInspections,normalizeInspection,saveInspections,upsertInspection,type FindingStatus,type Inspection} from "@/lib/inspections";
 
 const STATUS_OPTIONS:ReadonlyArray<{value:FindingStatus;label:string}>=[
@@ -12,15 +12,23 @@ const STATUS_OPTIONS:ReadonlyArray<{value:FindingStatus;label:string}>=[
 export default function InspectionRunner({inspection,onChange}:{inspection:Inspection;onChange:(inspection:Inspection)=>void}){
   const system=inspection.systems[0];
   const checklist=useMemo(()=>system?getInspectionChecklist(system.system_type,inspection.inspection_type):[],[system,inspection.inspection_type]);
-  const [step,setStep]=useState(0),[findingStatus,setFindingStatus]=useState<FindingStatus|"">(""),[note,setNote]=useState(""),[message,setMessage]=useState("");
+  const [step,setStep]=useState(()=>firstIncompleteChecklistIndex(checklist,inspection.findings.filter(finding=>finding.system_id===system?.id).map(finding=>finding.component))),[findingStatus,setFindingStatus]=useState<FindingStatus|"">(""),[note,setNote]=useState(""),[message,setMessage]=useState("");
   const current=checklist[step];
   const existing=current&&system?inspection.findings.find(finding=>finding.system_id===system.id&&finding.component===current.id):undefined;
   const checklistIds=new Set(checklist.map(item=>item.id));
-  const completed=new Set(inspection.findings.filter(finding=>finding.system_id===system?.id&&checklistIds.has(finding.component)).map(finding=>finding.component)).size;
+  const systemFindings=inspection.findings.filter(finding=>finding.system_id===system?.id&&checklistIds.has(finding.component));
+  const findingsByComponent=new Map(systemFindings.map(finding=>[finding.component,finding]));
+  const completed=new Set(systemFindings.map(finding=>finding.component)).size;
+  const hasUnsavedChanges=findingStatus!==(existing?.status||"")||note!==(existing?.raw_note||"");
 
   useEffect(()=>{
     setFindingStatus(existing?.status||"");setNote(existing?.raw_note||"");setMessage("");
   },[existing?.id,existing?.status,existing?.raw_note,current?.id]);
+
+  function goToStep(nextStep:number){
+    if(hasUnsavedChanges){setMessage("Save this component before moving to another step.");return}
+    setStep(nextStep);
+  }
 
   function saveFinding(event:FormEvent<HTMLFormElement>){
     event.preventDefault();
@@ -44,12 +52,13 @@ export default function InspectionRunner({inspection,onChange}:{inspection:Inspe
   return <section className="inspectionRunner" aria-labelledby="inspection-runner-title">
     <div className="inspectionRunnerHead"><div><small>Guided component review</small><b id="inspection-runner-title">{system.display_name}</b></div><span>{completed} of {checklist.length} documented</span></div>
     <div className="inspectionProgress" aria-label={`${completed} of ${checklist.length} components documented`}><span style={{width:`${Math.round(completed/checklist.length*100)}%`}} /></div>
+    <details className="inspectionStepList"><summary>Review steps <small>{completed===checklist.length?"All documented":"Tap to revisit a component"}</small></summary><div>{checklist.map((item,index)=>{const saved=findingsByComponent.get(item.id);return <button type="button" key={item.id} className={index===step?"active":""} aria-current={index===step?"step":undefined} onClick={()=>goToStep(index)}><span>{index+1}. {item.label}</span><small>{saved?STATUS_OPTIONS.find(option=>option.value===saved.status)?.label:"Not documented"}</small></button>})}</div></details>
     <form onSubmit={saveFinding}>
       <div className="inspectionStepMeta"><span>Step {step+1} of {checklist.length}</span>{current.photoRecommended?<em>Photo recommended</em>:<em>Photo optional</em>}</div>
       <h3>{current.label}</h3>
       <fieldset><legend>Technician-selected status</legend><div className="inspectionStatusGrid">{STATUS_OPTIONS.map(option=><label key={option.value} className={findingStatus===option.value?"selected":""}><input required type="radio" name={`status-${current.id}`} value={option.value} checked={findingStatus===option.value} onChange={()=>setFindingStatus(option.value)} /><span>{option.label}</span></label>)}</div></fieldset>
       <label className="inspectionNote">Field note<textarea rows={3} value={note} onChange={event=>setNote(event.target.value)} placeholder="Record only what you observed. Voice entry is available from your phone keyboard." /></label>
-      <div className="inspectionRunnerActions"><button type="button" disabled={step===0} onClick={()=>setStep(value=>value-1)}>Previous</button><span role="status" aria-live="polite">{message}</span><button type="submit" disabled={!findingStatus}>{step===checklist.length-1?"Save component":"Save & next"}</button></div>
+      <div className="inspectionRunnerActions"><button type="button" disabled={step===0} onClick={()=>goToStep(step-1)}>Previous</button><span role="status" aria-live="polite">{message}</span><button type="submit" disabled={!findingStatus}>{step===checklist.length-1?"Save component":"Save & next"}</button></div>
     </form>
     <p>AI can assist with wording later. The technician remains responsible for every status and observation.</p>
   </section>;

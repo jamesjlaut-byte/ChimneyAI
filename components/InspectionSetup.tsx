@@ -71,6 +71,6 @@ export default function InspectionSetup(){
       <div className="inspectionSetupActions"><span role="status" aria-live="polite">{status}</span><button type="submit">{active?"Save setup":"Start inspection"}</button></div>
       <p>Browser-first draft. AI assists; the technician controls observations, findings, and final conclusions.</p>
     </form>
-    {active?<InspectionRunner inspection={active} onChange={setActive}/>:null}
+    {active?<InspectionRunner key={`${active.systems[0]?.id}:${active.systems[0]?.system_type}:${active.inspection_type}`} inspection={active} onChange={setActive}/>:null}
   </details>;
 }

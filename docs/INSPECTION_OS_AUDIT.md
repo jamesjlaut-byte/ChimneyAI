@@ -177,6 +177,8 @@ First increment: a compact Pro-workspace setup form creates and recovers a real 
 
 Second increment: the active inspection now opens a one-component-at-a-time field runner. Its checklist changes with system type and inspection level, supports the full technician-controlled finding status set (including monitor and unable to inspect), and saves raw field notes locally before advancing. Photo capture, AI wording, and completion review remain later explicit phases rather than simulated capabilities.
 
+Third increment: returning technicians resume at the first undocumented component, while a collapsed progress list makes any saved component directly revisitable. Navigation protects unsaved field edits from accidental loss and retains the narrow, one-task-at-a-time mobile surface.
+
 ### Phase 3 — Photo and findings workflow
 
 Photo records, categories, captions, component linkage, raw notes, AI suggestion review, confirm/reject/edit/request-view actions, and finding/recommendation traceability.
