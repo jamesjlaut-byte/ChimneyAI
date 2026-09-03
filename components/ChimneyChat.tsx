@@ -13,6 +13,7 @@ import {provenanceFromAttachment} from "@/lib/source-provenance";
 import CloudWorkspace from "@/components/CloudWorkspace";
 import CloudCaseBrowser from "@/components/CloudCaseBrowser";
 import {modelsConflict} from "@/lib/model-identity";
+import MessageContent from "@/components/MessageContent";
 
 type Mode="homeowner"|"pro"; type Msg={role:"user"|"assistant";content:string;kind?:"analysis"|"system_error"};
 const starterHomeowner=["Explain this inspection report to me.","What does this repair recommendation mean?","What should I ask before hiring a chimney sweep?","Can you explain what you can see in a fireplace photo?"];
@@ -141,7 +142,7 @@ export default function ChimneyChat({mode}:{mode:Mode}){
     {messages.length===0&&<div className="welcomePanel"><div className="aiOrb"><Image src="/assets/chimneyai-app-icon.png" alt="ChimneyAI app" width={76} height={76}/></div><h2>{mode==="pro"?"What are you working on?":"How can I help with your chimney or fireplace?"}</h2>
       <p>{mode==="pro"?"Upload field photos or report text, run calculations, and ask technical/documentation questions.":"Upload an inspection report or photo and ChimneyAI can help explain what it says or what is visibly shown."}</p>
       <div className="starterGrid">{starters.map(x=><button key={x} type="button" onClick={()=>send(x)}>{x}</button>)}</div></div>}
-    <div className="messages" aria-live="polite" aria-busy={busy}>{messages.map((m,i)=><div key={i} className={`message ${m.role}`}><div className="messageRole">{m.role==="user"?"You":"ChimneyAI"}</div>{mode==="pro"&&m.role==="assistant"&&m.kind!=="system_error"&&<div className="professionalReviewFlag">AI analysis · technician review required</div>}<div className="messageText">{m.content}</div></div>)}
+    <div className="messages" aria-live="polite" aria-busy={busy}>{messages.map((m,i)=><div key={i} className={`message ${m.role}`}><div className="messageRole">{m.role==="user"?"You":"ChimneyAI"}</div>{mode==="pro"&&m.role==="assistant"&&m.kind!=="system_error"&&<div className="professionalReviewFlag">AI analysis · technician review required</div>}<div className="messageText">{m.role==="assistant"&&m.kind!=="system_error"?<MessageContent content={m.content}/>:m.content}</div></div>)}
       {busy&&<div className="message assistant"><div className="messageRole">ChimneyAI</div>{mode==="pro"&&<div className="professionalReviewFlag">Building evidence-aware analysis</div>}<div className="typing">Analyzing…</div></div>}</div>
     <div className="composer">
       {attachments.length>0&&<div className="attachmentTray">{attachments.map((a,i)=><div className="attachmentChip" key={`${a.name}-${i}`}><span>{a.kind==="image"?"PHOTO":"DOC"} · {a.name}{a.page_count?` · ${a.page_count} pages`:""}{a.text_truncated?" · partial text":""} · {a.sha256.slice(0,10)}…</span><button type="button" aria-label={`Remove ${a.name}`} disabled={busy} onClick={()=>setAttachments(attachments.filter((_,x)=>x!==i))}>×</button></div>)}</div>}
