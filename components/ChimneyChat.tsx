@@ -12,6 +12,7 @@ import type {SourceProvenanceRecord} from "@/lib/source-provenance";
 import {provenanceFromAttachment} from "@/lib/source-provenance";
 import CloudWorkspace from "@/components/CloudWorkspace";
 import CloudCaseBrowser from "@/components/CloudCaseBrowser";
+import {modelsConflict} from "@/lib/model-identity";
 
 type Mode="homeowner"|"pro"; type Msg={role:"user"|"assistant";content:string;kind?:"analysis"|"system_error"};
 const starterHomeowner=["Explain this inspection report to me.","What does this repair recommendation mean?","What should I ask before hiring a chimney sweep?","Can you explain what you can see in a fireplace photo?"];
@@ -27,16 +28,28 @@ export default function ChimneyChat({mode}:{mode:Mode}){
   const evidenceChecks=useMemo(()=>{
     const identityFields=[proSource.manufacturer.trim(),proSource.model.trim()];
     const identityCount=identityFields.filter(Boolean).length;
-    const hasSourceMaterial=attachments.length>0||sourceFiles.length>0;
+    const provenanceState=attachments.length?"documented":sourceFiles.length?"partial":"needed";
+    const provenanceDetail=attachments.length
+      ?`${attachments.length} attached now · ${sourceFiles.length} fingerprint record${sourceFiles.length===1?"":"s"}`
+      :sourceFiles.length
+        ?`${sourceFiles.length} fingerprint record${sourceFiles.length===1?"":"s"}; bytes not attached now`
+        :"Attach exact source bytes";
     const sourceIdentified=proSource.source_type!=="unknown"&&Boolean(proSource.source_title.trim());
-    const sourceAvailable=proSource.source_status==="uploaded"||proSource.source_status==="verified_external";
+    const sourceReviewable=proSource.source_status==="uploaded"&&(attachments.length>0||proSource.source_type==="field_measurement");
     const manualFields=[manualVerification.verified_model,manualVerification.manual_title,manualVerification.relevant_pages];
     const manualCount=manualFields.filter(x=>x.trim()).length;
+    const manualConflict=modelsConflict(proSource.model,manualVerification.verified_model);
+    const manualReady=manualCount===3&&Boolean(proSource.model.trim())&&!manualConflict;
+    const manualDetail=manualConflict
+      ?`Model conflict: ${proSource.model} ≠ ${manualVerification.verified_model}`
+      :manualReady
+        ?`${manualVerification.verified_model} · page ${manualVerification.relevant_pages}`
+        :"Verify appliance model, exact document, and page";
     return [
       {label:"Appliance identity",state:identityCount===2?"documented":identityCount?"partial":"needed",detail:identityCount===2?`${proSource.manufacturer} · ${proSource.model}`:"Manufacturer and exact model"},
-      {label:"Source material",state:hasSourceMaterial?"documented":"needed",detail:hasSourceMaterial?`${attachments.length+sourceFiles.length} file record${attachments.length+sourceFiles.length===1?"":"s"}`:"Attach or restore exact source bytes"},
-      {label:"Controlling source",state:sourceIdentified&&sourceAvailable?"documented":sourceIdentified?"partial":"needed",detail:sourceIdentified?`${proSource.source_title} · ${proSource.source_status.replaceAll("_"," ")}`:"Identify type, title, and availability"},
-      {label:"Manual applicability",state:manualCount===3?"documented":manualCount?"partial":"needed",detail:manualCount===3?`${manualVerification.verified_model} · page ${manualVerification.relevant_pages}`:"Verify exact model, document, and page"}
+      {label:"Source availability",state:provenanceState,detail:provenanceDetail},
+      {label:"Controlling source",state:sourceIdentified&&sourceReviewable?"documented":sourceIdentified?"partial":"needed",detail:sourceIdentified?`${proSource.source_title} · ${proSource.source_status.replaceAll("_"," ")}`:"Identify type, title, and availability"},
+      {label:"Manual applicability",state:manualReady?"documented":manualCount||manualConflict?"partial":"needed",detail:manualDetail}
     ] as const;
   },[attachments,sourceFiles,proSource,manualVerification]);
 
