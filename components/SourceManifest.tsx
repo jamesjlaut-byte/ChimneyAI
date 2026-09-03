@@ -32,7 +32,9 @@ export default function SourceManifest({
       if(active&&JSON.stringify(next)!==JSON.stringify(records))onChange(next);
     })();
     return()=>{active=false};
-  // deliberate: run when record or currently attached hashes change, not on each status mutation
+  // Deliberately rerun only when record or active-attachment identities change.
+  // onChange is created by the parent render and including it would turn status normalization into a loop.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   },[records.map(r=>r.sha256).join("|"),attachments.map(a=>a.sha256).join("|")]);
 
   function add(a:ChatAttachment){
@@ -80,7 +82,7 @@ export default function SourceManifest({
     finally{setBusy(null)}
   }
 
-  async function useInChat(record:SourceProvenanceRecord){
+  async function attachStoredSource(record:SourceProvenanceRecord){
     setBusy(record.sha256);setStatus("");
     try{
       const verification=await verifyStoredSourceFile(record.sha256);
@@ -182,7 +184,7 @@ export default function SourceManifest({
             <div className="vaultActions">
               {attached&&r.storage_status!=="persisted_browser"&&<button type="button" onClick={()=>persist(attached)}>Persist</button>}
               {r.storage_status==="persisted_browser"&&<>
-                {!attached&&<button type="button" disabled={busy===r.sha256} onClick={()=>useInChat(r)}>{busy===r.sha256?"Preparing…":"Use in chat"}</button>}
+                {!attached&&<button type="button" disabled={busy===r.sha256} onClick={()=>attachStoredSource(r)}>{busy===r.sha256?"Preparing…":"Use in chat"}</button>}
                 <button type="button" disabled={busy===r.sha256} onClick={()=>verify(r.sha256)}>Verify hash</button>
                 <button type="button" disabled={busy===r.sha256} onClick={()=>download(r.sha256)}>Open/download</button>
                 <button type="button" disabled={busy===r.sha256} onClick={()=>removeBytes(r.sha256)}>Remove bytes</button>

@@ -10,23 +10,26 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test tests/*.test.mjs",
     "eval:pro": "node scripts/run-pro-evals.mjs"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.57.4",
     "next": "15.5.24",
     "openai": "^4.86.1",
+    "pdfjs-dist": "6.2.108",
     "react": "19.0.0",
     "react-dom": "19.0.0",
-    "zod": "^3.24.2",
-    "pdfjs-dist": "6.2.108",
-    "@supabase/supabase-js": "^2.57.4"
+    "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3.3.7",
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "15.5.24",
     "typescript": "^5.8.2"
   }
 }

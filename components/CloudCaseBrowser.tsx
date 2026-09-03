@@ -1,5 +1,5 @@
 "use client";
-import {useMemo,useState} from "react";
+import {useState} from "react";
 import {fetchCloudCase,getCloudCaseRevisions,listCloudCases,restoreCloudSourceToVault,type CloudCaseRevisionSummary,type CloudCaseSummary} from "@/lib/workspace-sync";
 import {compareCaseVersions,loadCases,saveCases,upsertLocalCase,type ProCase} from "@/lib/pro-cases";
 
@@ -12,7 +12,7 @@ export default function CloudCaseBrowser({
   const [loaded,setLoaded]=useState(false);
   const [selected,setSelected]=useState<ProCase|null>(null);
   const [revisions,setRevisions]=useState<CloudCaseRevisionSummary[]>([]);
-  const locals=useMemo(()=>loadCases(),[loaded,selected]);
+  const locals=loadCases();
 
   async function refresh(){
     setBusy("list");setMessage("");

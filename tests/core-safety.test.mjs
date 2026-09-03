@@ -17,6 +17,7 @@ import {checkChatRateLimit} from "../lib/request-rate-limit.ts";
 import {provenanceFromAttachment} from "../lib/source-provenance.ts";
 import {isMeaningfulProDraft,parseProDraft,prepareProDraft} from "../lib/pro-draft.ts";
 import {sha256Blob} from "../lib/source-file-store.ts";
+import {canTransitionInspectionStatus,normalizeInspection,upsertInspection} from "../lib/inspections.ts";
 
 test("manufacturer registry resolves canonical names and field aliases",()=>{
   assert.equal(matchManufacturer("Heat-N-Glo")?.id,"heat-glo");
@@ -261,6 +262,42 @@ test("active Pro draft persistence keeps the newest bounded history",()=>{
   assert.equal(draft.messages[0].content,"Message 5");
   assert.equal(draft.messages.at(-1).content,"Message 204");
   assert.equal(draft.messages.some(message=>message.content==="Transient failure"),false);
+});
+
+test("inspection foundation preserves valid links and rejects cross-system evidence",()=>{
+  const now="2026-09-03T12:00:00.000Z",hash="b".repeat(64);
+  const inspection=normalizeInspection({
+    version:1,id:"inspection-1",created_at:now,updated_at:now,status:"in_progress",inspection_type:"Level 2",inspection_date:"2026-09-03",
+    customer:{id:"customer-1",first_name:"Fictional",last_name:"Customer"},
+    property:{id:"property-1",customer_id:"customer-1",street_address:"100 Test Street"},
+    technician:{id:"tech-1",name:"Test Technician",credentials:["Example credential"]},
+    systems:[
+      {id:"system-1",property_id:"property-1",display_name:"Living Room",system_type:"masonry_fireplace"},
+      {id:"system-2",property_id:"property-1",display_name:"Wood Stove",system_type:"wood_stove"}
+    ],
+    measurements:[{id:"measurement-1",system_id:"system-1",component:"Hearth",measurement_type:"depth",value:18,unit:"in",method:"tape",confidence:"verified",photo_id:"photo-2",technician_verified:true}],
+    findings:[{id:"finding-1",system_id:"system-1",component:"Hearth",raw_note:"Field note",ai_suggestion:"Draft wording",review_state:"ai_suggested",status:"observation_noted",photo_ids:["photo-1","photo-2"],measurement_ids:["measurement-1"]}],
+    photos:[
+      {id:"photo-1",system_id:"system-1",source_sha256:hash,category:"hearth",finding_ids:["finding-1"],review_state:"not_requested"},
+      {id:"photo-2",system_id:"system-2",source_sha256:"c".repeat(64),category:"appliance",finding_ids:["finding-1"],review_state:"not_requested"}
+    ],
+    report:{status:"draft",signature_status:"not_requested",revision:0}
+  });
+  assert.ok(inspection);
+  assert.deepEqual(inspection.findings[0].photo_ids,["photo-1"]);
+  assert.deepEqual(inspection.photos[1].finding_ids,[]);
+  assert.equal(inspection.measurements[0].photo_id,null);
+  assert.equal(inspection.findings[0].review_state,"ai_suggested");
+  assert.equal(inspection.findings[0].technician_observation,"");
+  assert.equal(upsertInspection([],inspection)[0].id,"inspection-1");
+});
+
+test("inspection foundation rejects ambiguous ownership and unsafe lifecycle jumps",()=>{
+  assert.equal(normalizeInspection({version:1,id:"inspection-1",customer:{id:"customer-1"},property:{id:"property-1",customer_id:"different-customer"}}),null);
+  assert.equal(canTransitionInspectionStatus("draft","completed"),false);
+  assert.equal(canTransitionInspectionStatus("in_progress","ready_for_review"),true);
+  assert.equal(canTransitionInspectionStatus("completed","in_progress"),true);
+  assert.equal(canTransitionInspectionStatus("delivered","in_progress"),false);
 });
 
 test("attachment provenance preserves the source fingerprint",()=>{
