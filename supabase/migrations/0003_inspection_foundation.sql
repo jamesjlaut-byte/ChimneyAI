@@ -45,8 +45,20 @@ create policy "owners manage own inspections" on public.inspections for all
 
 drop policy if exists "owners read own inspection revisions" on public.inspection_revisions;
 create policy "owners read own inspection revisions" on public.inspection_revisions for select
-  using (auth.uid()=owner_id);
+  using (
+    auth.uid()=owner_id
+    and exists (
+      select 1 from public.inspections inspection
+      where inspection.id=inspection_revisions.inspection_id and inspection.owner_id=auth.uid()
+    )
+  );
 
 drop policy if exists "owners create own inspection revisions" on public.inspection_revisions;
 create policy "owners create own inspection revisions" on public.inspection_revisions for insert
-  with check (auth.uid()=owner_id);
+  with check (
+    auth.uid()=owner_id
+    and exists (
+      select 1 from public.inspections inspection
+      where inspection.id=inspection_revisions.inspection_id and inspection.owner_id=auth.uid()
+    )
+  );

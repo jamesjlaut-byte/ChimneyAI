@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import {readFileSync} from "node:fs";
 import {test} from "node:test";
 
 import {defaultSourceRole} from "../lib/default-source-role.ts";
@@ -334,6 +335,14 @@ test("inspection persistence protects signed and delivered report history",()=>{
   assert.equal(incomplete.report.signature_status,"pending");
   assert.equal(incomplete.report.status,"completed");
   assert.equal(incomplete.status,"completed");
+});
+
+test("inspection revision RLS verifies ownership of the parent inspection",()=>{
+  const migration=readFileSync(new URL("../supabase/migrations/0003_inspection_foundation.sql",import.meta.url),"utf8");
+  const parentOwnershipChecks=migration.match(/inspection\.id=inspection_revisions\.inspection_id and inspection\.owner_id=auth\.uid\(\)/g)||[];
+  assert.equal(parentOwnershipChecks.length,2);
+  assert.match(migration,/create policy "owners read own inspection revisions"[\s\S]*?exists/);
+  assert.match(migration,/create policy "owners create own inspection revisions"[\s\S]*?with check[\s\S]*?exists/);
 });
 
 test("attachment provenance preserves the source fingerprint",()=>{
