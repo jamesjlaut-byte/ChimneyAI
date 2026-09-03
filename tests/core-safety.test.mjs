@@ -34,6 +34,14 @@ test("inspection photos use conservative component categories and file limits",(
   const findings=[{id:"finding-firebox",component:"firebox",status:"satisfactory"},{id:"finding-doors",component:"doors",status:"satisfactory"},{id:"finding-flue",component:"flue",status:"unable_to_inspect"}];
   assert.deepEqual(recommendedPhotoGaps(checklist,findings,[]),[checklist[0]]);
   assert.deepEqual(recommendedPhotoGaps(checklist,findings,[{finding_ids:["finding-firebox"]}]),[]);
+  assert.deepEqual(recommendedPhotoGaps(checklist,[],[]),[]);
+  assert.deepEqual(recommendedPhotoGaps(checklist,[{...findings[0],status:"not_applicable"}],[]),[]);
+});
+
+test("unfinished inspection photo review does not claim complete coverage",()=>{
+  const runner=readFileSync(new URL("../components/InspectionRunner.tsx",import.meta.url),"utf8");
+  assert.ok(runner.includes('missing.length?"Photo review in progress"'));
+  assert.equal(runner.includes("Recommended photo coverage complete"),false);
 });
 
 test("guided inspection checklists adapt to system and inspection level",()=>{
