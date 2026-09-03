@@ -16,7 +16,7 @@ export default function ProPage(){
     <div className="modeHeader">
       <div className="modeIdentity">
         <Link className="modeLogoLink" href="/" aria-label="Back to ChimneyAI home"><Image className="modeLogo" src="/assets/chimneyai-official-logo.png" alt="ChimneyAI" width={1254} height={1254} sizes="(max-width: 480px) 92vw, (max-width: 760px) 78vw, 220px" priority/></Link>
-        <div><div className="eyebrow">CHIMNEYAI PRO</div><h1>Technical assistant for chimney professionals.</h1>
+        <div><h1>Technical assistant for chimney professionals.</h1>
         <p>Separate observed facts, calculations, source requirements and professional interpretation.</p></div>
       </div>
       <div className="trustPill proTrust">Professional mode</div>
