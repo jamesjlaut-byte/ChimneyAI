@@ -3,6 +3,7 @@ import {useEffect,useMemo,useState} from "react";
 import {hashManualIdentity} from "@/lib/source-hash";
 import {modelsConflict} from "@/lib/model-identity";
 import {matchManufacturer} from "@/lib/manual-registry";
+import {manualHostMatches,normalizeManualHost,parseManualHttpsUrl} from "@/lib/manual-url";
 
 export type ManualVerification={
   manual_title:string;
@@ -20,16 +21,6 @@ export const EMPTY_MANUAL:ManualVerification={
   official_url:"",verified_model:"",relevant_pages:"",verification_note:""
 };
 
-function parseHttpsUrl(value:string){
-  if(!value.trim())return false;
-  try{
-    const url=new URL(value);
-    return url.protocol==="https:"&&Boolean(url.hostname)?url:false;
-  }catch{return false;}
-}
-
-function normalizedHost(hostname:string){return hostname.toLowerCase().replace(/^www\./,"");}
-
 export default function ManualVerificationCard({
   value,onChange,manufacturer,model
 }:{value:ManualVerification;onChange:(v:ManualVerification)=>void;manufacturer:string;model:string}){
@@ -37,13 +28,13 @@ export default function ManualVerificationCard({
   const [identityHash,setIdentityHash]=useState("");
   useEffect(()=>{let alive=true;hashManualIdentity({manufacturer,model,...value}).then(h=>{if(alive)setIdentityHash(h)});return()=>{alive=false}},[manufacturer,model,value]);
   const modelConflict=modelsConflict(model,value.verified_model);
-  const recordedUrl=useMemo(()=>parseHttpsUrl(value.official_url),[value.official_url]);
+  const recordedUrl=useMemo(()=>parseManualHttpsUrl(value.official_url),[value.official_url]);
   const officialUrlValid=Boolean(recordedUrl);
   const officialUrlInvalid=Boolean(value.official_url.trim())&&!officialUrlValid;
   const manufacturerMatch=useMemo(()=>matchManufacturer(manufacturer),[manufacturer]);
-  const registeredHost=manufacturerMatch?normalizedHost(new URL(manufacturerMatch.official_manual_lookup).hostname):null;
-  const recordedHost=recordedUrl?normalizedHost(recordedUrl.hostname):null;
-  const hostAligned=Boolean(registeredHost&&recordedHost&&(registeredHost===recordedHost||recordedHost.endsWith(`.${registeredHost}`)));
+  const registeredHost=manufacturerMatch?normalizeManualHost(new URL(manufacturerMatch.official_manual_lookup).hostname):null;
+  const recordedHost=recordedUrl?normalizeManualHost(recordedUrl.hostname):null;
+  const hostAligned=Boolean(registeredHost&&recordedHost&&manualHostMatches(recordedHost,registeredHost));
   const completeness=useMemo(()=>{
     const checks=[
       ["Exact model",Boolean(value.verified_model.trim())&&!modelConflict],

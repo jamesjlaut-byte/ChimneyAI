@@ -5,6 +5,7 @@ import {defaultSourceRole} from "../lib/default-source-role.ts";
 import {markLastAttemptFailed,modelHistory,recordableHistory} from "../lib/chat-history.ts";
 import {MAX_CHAT_REQUEST_BYTES,parseChatRequest} from "../lib/chat-request.ts";
 import {MANUFACTURERS,matchManufacturer} from "../lib/manual-registry.ts";
+import {manualHostMatches,normalizeManualHost,parseManualHttpsUrl} from "../lib/manual-url.ts";
 import {modelsConflict,normalizeModelIdentifier} from "../lib/model-identity.ts";
 import {cloudContentTimestamp,compareCaseVersions,normalizeManual,normalizeProSource,normalizeSavedMessages,normalizeSourceFiles,upsertLocalCase} from "../lib/pro-cases.ts";
 import {HOMEOWNER_SYSTEM_PROMPT,PRO_SYSTEM_PROMPT,promptForMode} from "../lib/prompts.ts";
@@ -19,6 +20,17 @@ test("manufacturer registry resolves canonical names and field aliases",()=>{
   assert.equal(matchManufacturer("Metalbestos")?.id,"selkirk");
   assert.equal(matchManufacturer("unknown maker"),null);
   assert.ok(MANUFACTURERS.every(entry=>entry.official_manual_lookup.startsWith("https://")));
+});
+
+test("manual URLs reject deceptive credentials and require aligned HTTPS hosts",()=>{
+  assert.equal(parseManualHttpsUrl("http://manuals.example/manual.pdf"),null);
+  assert.equal(parseManualHttpsUrl("https://manuals.example@evil.example/manual.pdf"),null);
+  assert.equal(parseManualHttpsUrl("https://user:secret@manuals.example/manual.pdf"),null);
+  assert.equal(parseManualHttpsUrl("https://manuals.example/manual.pdf")?.hostname,"manuals.example");
+  assert.equal(normalizeManualHost("WWW.Manuals.Example."),"manuals.example");
+  assert.equal(manualHostMatches("docs.manuals.example","manuals.example"),true);
+  assert.equal(manualHostMatches("manuals.example.evil.test","manuals.example"),false);
+  assert.equal(manualHostMatches("notmanuals.example","manuals.example"),false);
 });
 
 test("model history excludes client service errors and keeps the latest valid context",()=>{
