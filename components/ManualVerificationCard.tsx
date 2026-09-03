@@ -19,6 +19,14 @@ export const EMPTY_MANUAL:ManualVerification={
   official_url:"",verified_model:"",relevant_pages:"",verification_note:""
 };
 
+function isValidHttpsUrl(value:string){
+  if(!value.trim())return false;
+  try{
+    const url=new URL(value);
+    return url.protocol==="https:"&&Boolean(url.hostname);
+  }catch{return false;}
+}
+
 export default function ManualVerificationCard({
   value,onChange,manufacturer,model
 }:{value:ManualVerification;onChange:(v:ManualVerification)=>void;manufacturer:string;model:string}){
@@ -26,15 +34,17 @@ export default function ManualVerificationCard({
   const [identityHash,setIdentityHash]=useState("");
   useEffect(()=>{let alive=true;hashManualIdentity({manufacturer,model,...value}).then(h=>{if(alive)setIdentityHash(h)});return()=>{alive=false}},[manufacturer,model,value]);
   const modelConflict=modelsConflict(model,value.verified_model);
+  const officialUrlValid=isValidHttpsUrl(value.official_url);
+  const officialUrlInvalid=Boolean(value.official_url.trim())&&!officialUrlValid;
   const completeness=useMemo(()=>{
     const checks=[
       ["Exact model",Boolean(value.verified_model.trim())&&!modelConflict],
       ["Manual title",Boolean(value.manual_title.trim())],
-      ["Official source URL",Boolean(value.official_url.trim())],
+      ["Official source URL",officialUrlValid],
       ["Revision / date",Boolean(value.manual_revision.trim()||value.effective_date.trim())]
     ] as const;
     return checks;
-  },[value,modelConflict]);
+  },[value,modelConflict,officialUrlValid]);
 
   return <details className="verificationCard">
     <summary><span>Manual Verification Record</span><small>identity · revision · source · page</small></summary>
@@ -57,8 +67,9 @@ export default function ManualVerificationCard({
         <label>Relevant page(s)<input value={value.relevant_pages} onChange={e=>set("relevant_pages",e.target.value)} placeholder="e.g. 17, 24-25"/></label>
       </div>
       <label className="wideVerify">Official manufacturer URL
-        <input value={value.official_url} onChange={e=>set("official_url",e.target.value)} placeholder="Paste exact official manual/source URL"/>
+        <input type="url" inputMode="url" autoCapitalize="none" spellCheck={false} value={value.official_url} onChange={e=>set("official_url",e.target.value)} placeholder="https://manufacturer.example/manual.pdf"/>
       </label>
+      {officialUrlInvalid&&<div className="verificationUrlWarning" role="alert">Enter the complete HTTPS manufacturer URL. This checkpoint remains incomplete until the address is valid.</div>}
       <label className="wideVerify">Verification note
         <textarea value={value.verification_note} onChange={e=>set("verification_note",e.target.value)} rows={3}
           placeholder="What was verified, what remains uncertain, and why this manual applies to this exact appliance."/>
