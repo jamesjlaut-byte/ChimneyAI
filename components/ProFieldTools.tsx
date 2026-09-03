@@ -36,6 +36,7 @@ export default function ProFieldTools(){
       {archHasInput&&!arch&&<div className="calcWarning" role="status">Enter positive dimensions. This segment helper requires rise to be no greater than half the span.</div>}
       {arch&&<div className="calcResult">
         <b>Calculated segment radius:</b> {arch.radius.toFixed(2)} in · <b>arc length:</b> {arch.arc.toFixed(2)} in · <b>central angle:</b> {arch.angleDeg.toFixed(1)}°
+        <p className="calcMethod"><b>Inputs:</b> span/chord {n(span)} in; rise {n(rise)} in.<br/><b>Method:</b> radius = span² ÷ (8 × rise) + rise ÷ 2; arc length = radius × central angle in radians.</p>
         <p>Geometry aid only. Verify the field shape and measurement method before using this for fabrication or clearance analysis.</p>
       </div>}
       </details>
@@ -50,6 +51,7 @@ export default function ProFieldTools(){
       {hearthHasInput&&!hearth&&<div className="calcWarning" role="status">Enter positive dimensions. Total hearth width cannot be less than the opening width.</div>}
       {hearth&&<div className="calcResult">
         <b>Calculated side extension if centered:</b> {hearth.sideEach.toFixed(2)} in each side · <b>measured front depth entered:</b> {hearth.depth.toFixed(2)} in
+        <p className="calcMethod"><b>Inputs:</b> total hearth width {n(hearthW)} in; opening width {n(openingW)} in; front depth {n(hearthD)} in.<br/><b>Method:</b> centered side extension = (total hearth width − opening width) ÷ 2.</p>
         <p>This tool reports geometry only. It does not decide the required hearth extension. Required dimensions must come from the controlling appliance listing/manual and/or adopted requirements applicable to the installation.</p>
       </div>}
       </details>
