@@ -15,8 +15,9 @@ import CloudCaseBrowser from "@/components/CloudCaseBrowser";
 import {modelsConflict} from "@/lib/model-identity";
 import MessageContent from "@/components/MessageContent";
 import {defaultSourceRole} from "@/lib/default-source-role";
+import {modelHistory,type ChatHistoryMessage} from "@/lib/chat-history";
 
-type Mode="homeowner"|"pro"; type Msg={role:"user"|"assistant";content:string;kind?:"analysis"|"system_error"};
+type Mode="homeowner"|"pro"; type Msg=ChatHistoryMessage;
 const starterHomeowner=["Explain this inspection report to me.","What does this repair recommendation mean?","What should I ask before hiring a chimney sweep?","Can you explain what you can see in a fireplace photo?"];
 const starterPro=["Help me write objective report language.","Check a fireplace opening-to-flue ratio.","Second-look these inspection photos.","Help me structure a manufacturer-manual verification."];
 
@@ -92,7 +93,7 @@ export default function ChimneyChat({mode}:{mode:Mode}){
     const cleaned=value.trim();if((!cleaned&&attachments.length===0)||busy)return;
     const userText=cleaned||`Please review the attached ${attachments.length===1?"file":"files"}.`;
     const next=[...messages,{role:"user" as const,content:userText}],currentAttachments=attachments;
-    const requestMessages=next.slice(-40).map(({role,content})=>({role,content}));
+    const requestMessages=modelHistory(next);
     const requestBody=JSON.stringify({
       mode,messages:requestMessages,
       attachments:currentAttachments.map(({original_blob,...a})=>a),

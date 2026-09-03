@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {test} from "node:test";
 
 import {defaultSourceRole} from "../lib/default-source-role.ts";
+import {modelHistory} from "../lib/chat-history.ts";
 import {MAX_CHAT_REQUEST_BYTES,parseChatRequest} from "../lib/chat-request.ts";
 import {MANUFACTURERS,matchManufacturer} from "../lib/manual-registry.ts";
 import {modelsConflict,normalizeModelIdentifier} from "../lib/model-identity.ts";
@@ -17,6 +18,24 @@ test("manufacturer registry resolves canonical names and field aliases",()=>{
   assert.equal(matchManufacturer("Metalbestos")?.id,"selkirk");
   assert.equal(matchManufacturer("unknown maker"),null);
   assert.ok(MANUFACTURERS.every(entry=>entry.official_manual_lookup.startsWith("https://")));
+});
+
+test("model history excludes client service errors and keeps the latest valid context",()=>{
+  const history=[
+    {role:"user",content:"First question"},
+    {role:"assistant",kind:"system_error",content:"Service unavailable"},
+    {role:"user",content:"Retry question"},
+    {role:"assistant",kind:"analysis",content:"Technical answer"}
+  ];
+  assert.deepEqual(modelHistory(history),[
+    {role:"user",content:"First question"},
+    {role:"user",content:"Retry question"},
+    {role:"assistant",content:"Technical answer"}
+  ]);
+  assert.deepEqual(modelHistory(history,2),[
+    {role:"user",content:"Retry question"},
+    {role:"assistant",content:"Technical answer"}
+  ]);
 });
 
 test("chat request validation enforces modes, limits, hashes, and upload types",()=>{
