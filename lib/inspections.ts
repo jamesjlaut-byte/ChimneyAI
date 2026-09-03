@@ -147,6 +147,13 @@ export function normalizeInspection(value:unknown):Inspection|null{
   }));
 
   const technicianRecord=record(root.technician),reportRecord=record(root.report);
+  const signedAt=nullableTimestamp(reportRecord.signed_at),deliveredAt=nullableTimestamp(reportRecord.delivered_at);
+  let signatureStatus=enumValue(reportRecord.signature_status,SIGNATURE_STATUSES,"not_requested");
+  if(signatureStatus==="signed"&&!signedAt)signatureStatus="pending";
+  let reportStatus=enumValue(reportRecord.status,REPORT_STATUSES,"not_started");
+  if(reportStatus==="delivered"&&!deliveredAt)reportStatus="completed";
+  let inspectionStatus=enumValue(root.status,INSPECTION_STATUSES,"draft");
+  if(inspectionStatus==="delivered"&&reportStatus!=="delivered")inspectionStatus="completed";
   return {
     version:INSPECTION_SCHEMA_VERSION,id:inspectionId,company_id:nullableText(root.company_id,100),
     technician:{id:id(technicianRecord.id),name:text(technicianRecord.name,200),credentials:stringList(technicianRecord.credentials,30,200)},
@@ -155,11 +162,11 @@ export function normalizeInspection(value:unknown):Inspection|null{
     property:{id:propertyId,customer_id:customerId,street_address:text(propertyRecord.street_address,300),city:text(propertyRecord.city,200),
       state:text(propertyRecord.state,100),postal_code:text(propertyRecord.postal_code,40),notes:text(propertyRecord.notes,3000)},
     systems,inspection_type:text(root.inspection_type,200),inspection_date:text(root.inspection_date,100),
-    status:enumValue(root.status,INSPECTION_STATUSES,"draft"),started_at:nullableTimestamp(root.started_at),completed_at:nullableTimestamp(root.completed_at),
+    status:inspectionStatus,started_at:nullableTimestamp(root.started_at),completed_at:nullableTimestamp(root.completed_at),
     pro_case_id:nullableText(root.pro_case_id,100),findings,measurements:safeMeasurements,photos:safePhotos,
-    report:{status:enumValue(reportRecord.status,REPORT_STATUSES,"not_started"),signature_status:enumValue(reportRecord.signature_status,SIGNATURE_STATUSES,"not_requested"),
+    report:{status:reportStatus,signature_status:signatureStatus,
       revision:typeof reportRecord.revision==="number"&&Number.isSafeInteger(reportRecord.revision)&&reportRecord.revision>=0?reportRecord.revision:0,
-      signed_at:nullableTimestamp(reportRecord.signed_at),delivered_at:nullableTimestamp(reportRecord.delivered_at)},
+      signed_at:signedAt,delivered_at:deliveredAt},
     created_at:createdAt,updated_at:timestamp(root.updated_at,createdAt)
   };
 }
@@ -183,6 +190,13 @@ export function saveInspections(inspections:Inspection[]){
 export function upsertInspection(inspections:Inspection[],incoming:Inspection){
   const normalized=normalizeInspection(incoming);
   if(!normalized)throw new Error("Inspection record is invalid and was not saved.");
+  const existing=inspections.find(item=>item.id===normalized.id);
+  if(existing&&!canTransitionInspectionStatus(existing.status,normalized.status)){
+    throw new Error(`Inspection status cannot move from ${existing.status} to ${normalized.status}.`);
+  }
+  if(existing&&(existing.report.signature_status==="signed"||existing.report.status==="delivered")&&normalized.report.revision<=existing.report.revision){
+    throw new Error("Signed or delivered inspection changes require a new report revision.");
+  }
   return [normalized,...inspections.filter(item=>item.id!==normalized.id)]
     .sort((a,b)=>Date.parse(b.updated_at)-Date.parse(a.updated_at)).slice(0,MAX_LOCAL_INSPECTIONS);
 }

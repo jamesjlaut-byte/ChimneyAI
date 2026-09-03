@@ -317,6 +317,25 @@ test("inspection foundation rejects ambiguous ownership and unsafe lifecycle jum
   assert.equal(canTransitionInspectionStatus("delivered","in_progress"),false);
 });
 
+test("inspection persistence protects signed and delivered report history",()=>{
+  const base=normalizeInspection({
+    version:1,id:"inspection-lifecycle",created_at:"2026-09-03T12:00:00.000Z",updated_at:"2026-09-03T12:10:00.000Z",
+    customer:{id:"customer-1"},property:{id:"property-1",customer_id:"customer-1"},systems:[],status:"completed",
+    report:{status:"completed",signature_status:"signed",signed_at:"2026-09-03T12:09:00.000Z",revision:1}
+  });
+  assert.ok(base);
+  assert.throws(()=>upsertInspection([base],{...base,updated_at:"2026-09-03T12:11:00.000Z"}),/new report revision/);
+  const revised={...base,updated_at:"2026-09-03T12:11:00.000Z",report:{...base.report,revision:2}};
+  assert.equal(upsertInspection([base],revised)[0].report.revision,2);
+  assert.throws(()=>upsertInspection([base],{...revised,status:"draft"}),/status cannot move/);
+
+  const incomplete=normalizeInspection({...base,id:"incomplete-lifecycle",status:"delivered",report:{status:"delivered",signature_status:"signed",revision:1}});
+  assert.ok(incomplete);
+  assert.equal(incomplete.report.signature_status,"pending");
+  assert.equal(incomplete.report.status,"completed");
+  assert.equal(incomplete.status,"completed");
+});
+
 test("attachment provenance preserves the source fingerprint",()=>{
   const attachment={
     id:"attachment-1",name:"manual.pdf",kind:"pdf",mime_type:"application/pdf",
