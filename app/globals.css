@@ -57,3 +57,5 @@ a{color:inherit;text-decoration:none}a:focus-visible,button:focus-visible,input:
 
 /* Brand-state colors stay within ChimneyAI's charcoal, silver, white, and red palette. */
 .verifyChecklist span.done,.vaultState.persisted_browser{border-color:#666;color:#eee;background:#1b1b1b}
+
+.verificationUrlReview{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:8px;padding:9px 10px;border:1px solid #394248;border-radius:8px;background:#10161a;color:#aeb7bd;font-size:11px;line-height:1.45}.verificationUrlReview.needsReview{border-color:#5b3b32;background:#211510;color:#dfa89e}.verificationUrlReview a{flex:0 0 auto;color:#fff;text-decoration:underline;text-underline-offset:3px}@media(max-width:760px){.verificationUrlReview{display:grid}}

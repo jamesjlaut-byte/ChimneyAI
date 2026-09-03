@@ -2,6 +2,7 @@
 import {useEffect,useMemo,useState} from "react";
 import {hashManualIdentity} from "@/lib/source-hash";
 import {modelsConflict} from "@/lib/model-identity";
+import {matchManufacturer} from "@/lib/manual-registry";
 
 export type ManualVerification={
   manual_title:string;
@@ -19,13 +20,15 @@ export const EMPTY_MANUAL:ManualVerification={
   official_url:"",verified_model:"",relevant_pages:"",verification_note:""
 };
 
-function isValidHttpsUrl(value:string){
+function parseHttpsUrl(value:string){
   if(!value.trim())return false;
   try{
     const url=new URL(value);
-    return url.protocol==="https:"&&Boolean(url.hostname);
+    return url.protocol==="https:"&&Boolean(url.hostname)?url:false;
   }catch{return false;}
 }
+
+function normalizedHost(hostname:string){return hostname.toLowerCase().replace(/^www\./,"");}
 
 export default function ManualVerificationCard({
   value,onChange,manufacturer,model
@@ -34,13 +37,18 @@ export default function ManualVerificationCard({
   const [identityHash,setIdentityHash]=useState("");
   useEffect(()=>{let alive=true;hashManualIdentity({manufacturer,model,...value}).then(h=>{if(alive)setIdentityHash(h)});return()=>{alive=false}},[manufacturer,model,value]);
   const modelConflict=modelsConflict(model,value.verified_model);
-  const officialUrlValid=isValidHttpsUrl(value.official_url);
+  const recordedUrl=useMemo(()=>parseHttpsUrl(value.official_url),[value.official_url]);
+  const officialUrlValid=Boolean(recordedUrl);
   const officialUrlInvalid=Boolean(value.official_url.trim())&&!officialUrlValid;
+  const manufacturerMatch=useMemo(()=>matchManufacturer(manufacturer),[manufacturer]);
+  const registeredHost=manufacturerMatch?normalizedHost(new URL(manufacturerMatch.official_manual_lookup).hostname):null;
+  const recordedHost=recordedUrl?normalizedHost(recordedUrl.hostname):null;
+  const hostAligned=Boolean(registeredHost&&recordedHost&&(registeredHost===recordedHost||recordedHost.endsWith(`.${registeredHost}`)));
   const completeness=useMemo(()=>{
     const checks=[
       ["Exact model",Boolean(value.verified_model.trim())&&!modelConflict],
       ["Manual title",Boolean(value.manual_title.trim())],
-      ["Official source URL",officialUrlValid],
+      ["HTTPS source URL entered",officialUrlValid],
       ["Revision / date",Boolean(value.manual_revision.trim()||value.effective_date.trim())]
     ] as const;
     return checks;
@@ -70,6 +78,14 @@ export default function ManualVerificationCard({
         <input type="url" inputMode="url" autoCapitalize="none" spellCheck={false} value={value.official_url} onChange={e=>set("official_url",e.target.value)} placeholder="https://manufacturer.example/manual.pdf"/>
       </label>
       {officialUrlInvalid&&<div className="verificationUrlWarning" role="alert">Enter the complete HTTPS manufacturer URL. This checkpoint remains incomplete until the address is valid.</div>}
+      {recordedUrl&&<div className={`verificationUrlReview ${manufacturerMatch&&!hostAligned?"needsReview":""}`}>
+        <span>{manufacturerMatch
+          ?hostAligned
+            ?`Domain aligns with ChimneyAI's registered ${manufacturerMatch.name} lookup. Confirm the document, model coverage, and revision.`
+            :`Domain differs from ChimneyAI's registered ${manufacturerMatch.name} lookup (${registeredHost}). Confirm it is manufacturer-controlled or reached from the official lookup before relying on it.`
+          :"HTTPS format is valid, but ChimneyAI has no registered manufacturer domain match for this record. Verify source control and applicability independently."}</span>
+        <a href={recordedUrl.href} target="_blank" rel="noopener noreferrer">Open recorded source ↗</a>
+      </div>}
       <label className="wideVerify">Verification note
         <textarea value={value.verification_note} onChange={e=>set("verification_note",e.target.value)} rows={3}
           placeholder="What was verified, what remains uncertain, and why this manual applies to this exact appliance."/>
