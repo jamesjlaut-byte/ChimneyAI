@@ -6,7 +6,7 @@ import {markLastAttemptFailed,modelHistory,recordableHistory} from "../lib/chat-
 import {MAX_CHAT_REQUEST_BYTES,parseChatRequest} from "../lib/chat-request.ts";
 import {MANUFACTURERS,matchManufacturer} from "../lib/manual-registry.ts";
 import {modelsConflict,normalizeModelIdentifier} from "../lib/model-identity.ts";
-import {compareCaseVersions,normalizeManual,normalizeProSource,normalizeSavedMessages,normalizeSourceFiles,upsertLocalCase} from "../lib/pro-cases.ts";
+import {cloudContentTimestamp,compareCaseVersions,normalizeManual,normalizeProSource,normalizeSavedMessages,normalizeSourceFiles,upsertLocalCase} from "../lib/pro-cases.ts";
 import {HOMEOWNER_SYSTEM_PROMPT,PRO_SYSTEM_PROMPT,promptForMode} from "../lib/prompts.ts";
 import {proSourceInstruction} from "../lib/pro-source.ts";
 import {checkChatRateLimit} from "../lib/request-rate-limit.ts";
@@ -149,6 +149,8 @@ test("case version comparison exposes conflicts instead of guessing",()=>{
   assert.equal(compareCaseVersions(local,"2026-09-02T12:00:10.500Z"),"synced");
   assert.equal(compareCaseVersions(local,"2026-09-02T12:00:20.000Z"),"cloud_newer");
   assert.equal(compareCaseVersions(local,"not-a-date"),"conflict");
+  assert.equal(cloudContentTimestamp("2026-09-02T12:00:10.000Z","2026-09-02T12:01:00.000Z"),"2026-09-02T12:00:10.000Z");
+  assert.equal(cloudContentTimestamp("","2026-09-02T12:01:00.000Z"),"2026-09-02T12:01:00.000Z");
 });
 
 test("case upsert replaces a matching case and caps browser storage index",()=>{

@@ -81,7 +81,7 @@ export default function ProCaseManager({
           cloud:{
             remote_case_id:result.remote_case_id,
             last_cloud_sync_at:now,
-            cloud_updated_at:now,
+            cloud_updated_at:c.updated_at,
             sync_state:"synced" as const
           }
         }:x);

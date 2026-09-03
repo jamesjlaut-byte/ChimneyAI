@@ -84,7 +84,7 @@ export default function CloudCaseBrowser({
 
       {rows.length>0&&<div className="cloudCaseList">{rows.map(r=>{
         const local=locals.find(c=>c.id===r.client_case_id);
-        const state=local?compareCaseVersions(local,r.updated_at):"cloud_newer";
+        const state=local?compareCaseVersions(local,r.content_updated_at):"cloud_newer";
         return <button type="button" className="cloudCaseRow" onClick={()=>inspect(r)} key={r.id}>
           <div><b>{r.title}</b><span>{[r.manufacturer,r.model,r.serial].filter(Boolean).join(" · ")||"No appliance identity"}</span></div>
           <div><small>{r.source_count} sources · {new Date(r.updated_at).toLocaleString()}</small><em>{local?state.replace("_"," "):"cloud only"}</em></div>

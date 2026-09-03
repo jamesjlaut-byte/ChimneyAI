@@ -1,4 +1,4 @@
-import {normalizeManual,normalizeProSource,normalizeSavedMessages,normalizeSourceFiles,type ProCase} from "@/lib/pro-cases";
+import {cloudContentTimestamp,normalizeManual,normalizeProSource,normalizeSavedMessages,normalizeSourceFiles,type ProCase} from "@/lib/pro-cases";
 import type {SourceProvenanceRecord} from "@/lib/source-provenance";
 import {getBrowserSupabase,hasSupabaseConfig} from "@/lib/supabase-client";
 import {getStoredSourceFile,putStoredSourceFile} from "@/lib/source-file-store";
@@ -20,6 +20,7 @@ export type CloudCaseSummary={
   model:string|null;
   serial:string|null;
   updated_at:string;
+  content_updated_at:string;
   created_at:string;
   source_count:number;
 };
@@ -160,7 +161,7 @@ export async function listCloudCases():Promise<CloudCaseSummary[]>{
   const {supabase}=await requireUser();
   const {data,error}=await supabase
     .from("pro_cases")
-    .select("id,client_case_id,title,manufacturer,model,serial,updated_at,created_at,pro_case_sources(count)")
+    .select("id,client_case_id,title,manufacturer,model,serial,client_updated_at,updated_at,created_at,pro_case_sources(count)")
     .order("updated_at",{ascending:false})
     .limit(100);
   if(error)throw error;
@@ -170,7 +171,8 @@ export async function listCloudCases():Promise<CloudCaseSummary[]>{
     return {
       id:text(r.id),client_case_id:text(r.client_case_id),title:text(r.title)||"Untitled cloud case",
       manufacturer:text(r.manufacturer)||null,model:text(r.model)||null,serial:text(r.serial)||null,
-      updated_at:text(r.updated_at),created_at:text(r.created_at),source_count:Number(countRecord.count||0)
+      updated_at:text(r.updated_at),content_updated_at:cloudContentTimestamp(text(r.client_updated_at),text(r.updated_at)),
+      created_at:text(r.created_at),source_count:Number(countRecord.count||0)
     };
   });
 }
@@ -187,6 +189,8 @@ export async function fetchCloudCase(remoteCaseId:string):Promise<ProCase>{
   if(sourceError)throw sourceError;
 
   const caseRecord=record(c);
+  const fallbackNow=new Date().toISOString();
+  const contentUpdatedAt=cloudContentTimestamp(text(caseRecord.client_updated_at),text(caseRecord.updated_at))||fallbackNow;
   const sourceFiles=normalizeSourceFiles(((sources||[]) as unknown[]).map(row=>{
     const s=record(row);
     return {
@@ -196,13 +200,13 @@ export async function fetchCloudCase(remoteCaseId:string):Promise<ProCase>{
       role:s.source_role,note:text(s.technician_note),
       storage_status:"missing",integrity_status:"unchecked",persisted_at:undefined
     };
-  }),text(caseRecord.created_at)||new Date().toISOString());
+  }),text(caseRecord.created_at)||fallbackNow);
 
   return {
     id:text(caseRecord.client_case_id),
     title:text(caseRecord.title)||"Untitled cloud case",
-    created_at:text(caseRecord.created_at)||new Date().toISOString(),
-    updated_at:text(caseRecord.client_updated_at)||text(caseRecord.updated_at)||new Date().toISOString(),
+    created_at:text(caseRecord.created_at)||fallbackNow,
+    updated_at:contentUpdatedAt,
     manufacturer:text(caseRecord.manufacturer),
     model:text(caseRecord.model),
     serial:text(caseRecord.serial),
@@ -212,12 +216,12 @@ export async function fetchCloudCase(remoteCaseId:string):Promise<ProCase>{
     source:normalizeProSource(caseRecord.source_json),
     manual:normalizeManual(caseRecord.manual_json),
     manual_identity_hash:text(caseRecord.manual_identity_hash)||undefined,
-    messages:normalizeSavedMessages(caseRecord.conversation_json,text(caseRecord.created_at)||new Date().toISOString()),
+    messages:normalizeSavedMessages(caseRecord.conversation_json,text(caseRecord.created_at)||fallbackNow),
     source_files:sourceFiles,
     cloud:{
       remote_case_id:text(caseRecord.id),
       last_cloud_sync_at:new Date().toISOString(),
-      cloud_updated_at:text(caseRecord.updated_at),
+      cloud_updated_at:contentUpdatedAt,
       sync_state:"synced"
     }
   };

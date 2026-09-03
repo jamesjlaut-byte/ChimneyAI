@@ -138,6 +138,10 @@ export function compareCaseVersions(localCase:ProCase,cloudUpdatedAt?:string|nul
   return localTs>cloudTs?"local_newer" as const:"cloud_newer" as const;
 }
 
+export function cloudContentTimestamp(clientUpdatedAt?:string|null,serverUpdatedAt?:string|null){
+  return clientUpdatedAt?.trim()||serverUpdatedAt?.trim()||"";
+}
+
 export function upsertLocalCase(cases:ProCase[],incoming:ProCase){
   const idx=cases.findIndex(c=>c.id===incoming.id);
   if(idx<0)return [incoming,...cases].slice(0,100);
