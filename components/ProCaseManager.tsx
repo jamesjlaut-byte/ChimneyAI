@@ -164,7 +164,7 @@ export default function ProCaseManager({
       </div>)}</div>}
       {syncMessage&&<div className="caseSyncMessage">{syncMessage}</div>}
       <div className="caseFooter">
-        <p className="casePrivacy">Browser-local case storage remains available in v39. Case records preserve conversation text and source fingerprints. Source bytes can now be persisted separately in the browser Source File Vault and re-verified against SHA-256.</p>
+        <p className="casePrivacy">Browser-local case records preserve conversation text and source fingerprints. Source bytes can be persisted separately in the browser Source File Vault and re-verified against SHA-256.</p>
         <button type="button" onClick={onClearChat}>Clear current chat</button>
       </div>
     </div>

@@ -15,13 +15,20 @@ export const EMPTY_PRO_SOURCE:ProSourceState={
   source_type:"unknown",source_title:"",source_status:"not_available",technician_question:""
 };
 
+const SOURCE_STATUS_LABELS:Record<ProSourceState["source_status"],string>={
+  uploaded:"uploaded here",
+  verified_external:"externally verified (recorded)",
+  reference_only:"reference only",
+  not_available:"not available"
+};
+
 export default function ProSourceDesk({value,onChange}:{value:ProSourceState;onChange:(v:ProSourceState)=>void}){
   function set<K extends keyof ProSourceState>(key:K,val:ProSourceState[K]){onChange({...value,[key]:val});}
   return <details className="sourceDesk">
     <summary><span>Source Desk</span><small>manufacturer · model · manual · listing</small></summary>
     <div className="sourceDeskBody">
       <div className="sourceStatusBanner">
-        <b>Source status:</b> {value.source_status.replaceAll("_"," ")}
+        <b>Source status:</b> {SOURCE_STATUS_LABELS[value.source_status]}
         <span>ChimneyAI will not silently upgrade an unverified source.</span>
       </div>
       <div className="sourceGrid">
@@ -44,7 +51,7 @@ export default function ProSourceDesk({value,onChange}:{value:ProSourceState;onC
           <option value="not_available">Not available</option>
           <option value="uploaded">Uploaded here</option>
           <option value="reference_only">Reference only</option>
-          <option value="verified_external">Verified externally by app</option>
+          <option value="verified_external">Externally verified (recorded)</option>
         </select></label>
         <label>Source title<input value={value.source_title} onChange={e=>set("source_title",e.target.value)} placeholder="Manual / document title"/></label>
         <label>Manufacturer<input value={value.manufacturer} onChange={e=>set("manufacturer",e.target.value)} placeholder="Type or select manufacturer" list="known-manufacturers" autoComplete="off"/></label>

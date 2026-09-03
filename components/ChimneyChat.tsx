@@ -152,7 +152,7 @@ export default function ChimneyChat({mode}:{mode:Mode}){
     <ProFieldTools/>
     <ProCaseManager source={proSource} manual={manualVerification} messages={messages} sourceFiles={sourceFiles}
       onLoad={({source,manual,question,messages:loadedMessages,sourceFiles:loadedSourceFiles})=>{setProSource(source);setManualVerification(manual);setMessages(loadedMessages);setSourceFiles(loadedSourceFiles);if(question)setText(question)}}
-      onClearChat={()=>setMessages([])}/>
+      onClearChat={startNewChat}/>
     <details className="workspaceGroup cloudTools">
       <summary><span>Cloud &amp; multi-device</span><small>optional sign-in, sync, and retrieval</small></summary>
       <div className="workspaceGroupBody">
