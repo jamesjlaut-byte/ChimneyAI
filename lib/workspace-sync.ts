@@ -72,20 +72,28 @@ async function requireUser(){
   return {supabase,user:data.user};
 }
 
-async function uploadCaseSource(caseId:string,src:SourceProvenanceRecord){
-  const supabase=requireCloud();
+type PreparedSourceUpload={src:SourceProvenanceRecord;blob:Blob|null};
+
+async function prepareCaseSource(src:SourceProvenanceRecord):Promise<PreparedSourceUpload>{
   const verification=await verifyStoredSourceFile(src.sha256);
-  if(!verification.exists)return {uploaded:false,reason:"local_bytes_missing",path:null as string|null};
+  if(!verification.exists)return {src,blob:null};
   if(!verification.match||!verification.stored){
-    throw new Error(`Source file ${src.file_name} failed SHA-256 verification and was not uploaded.`);
+    throw new Error(`Source file ${src.file_name} failed SHA-256 verification. Cloud sync stopped before updating the case.`);
   }
   const stored=verification.stored;
   if(stored.blob.size!==src.byte_size){
-    throw new Error(`Source file ${src.file_name} failed byte-size verification and was not uploaded.`);
+    throw new Error(`Source file ${src.file_name} failed byte-size verification. Cloud sync stopped before updating the case.`);
   }
+  return {src,blob:stored.blob};
+}
+
+async function uploadCaseSource(caseId:string,prepared:PreparedSourceUpload){
+  const {src,blob}=prepared;
+  if(!blob)return {uploaded:false,reason:"local_bytes_missing",path:null as string|null};
+  const supabase=requireCloud();
   const safeName=src.file_name.replace(/[^\w.\-() ]+/g,"_")||"source-file";
   const path=`cases/${caseId}/${src.sha256}/${safeName}`;
-  const {error}=await supabase.storage.from("pro-case-sources").upload(path,stored.blob,{
+  const {error}=await supabase.storage.from("pro-case-sources").upload(path,blob,{
     upsert:false,
     contentType:src.mime_type,
     cacheControl:"3600"
@@ -100,6 +108,9 @@ export async function syncCaseToCloud(c:ProCase):Promise<SyncResult>{
 
   const {data:userData,error:userError}=await supabase.auth.getUser();
   if(userError||!userData.user)return {ok:false,mode:"cloud_ready",message:"Sign in before syncing this case."};
+
+  const preparedSources:PreparedSourceUpload[]=[];
+  for(const source of c.source_files)preparedSources.push(await prepareCaseSource(source));
 
   const now=new Date().toISOString();
   const payload={
@@ -129,8 +140,9 @@ export async function syncCaseToCloud(c:ProCase):Promise<SyncResult>{
   const remoteCaseId=caseRow.id as string;
 
   let uploaded=0;
-  for(const src of c.source_files){
-    const upload=await uploadCaseSource(remoteCaseId,src);
+  for(const prepared of preparedSources){
+    const {src}=prepared;
+    const upload=await uploadCaseSource(remoteCaseId,prepared);
     if(upload.uploaded)uploaded++;
     const {error:srcError}=await supabase.from("pro_case_sources").upsert({
       case_id:remoteCaseId,
