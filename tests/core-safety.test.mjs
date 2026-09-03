@@ -277,7 +277,7 @@ test("inspection foundation preserves valid links and rejects cross-system evide
       {id:"system-2",property_id:"property-1",display_name:"Wood Stove",system_type:"wood_stove"}
     ],
     measurements:[{id:"measurement-1",system_id:"system-1",component:"Hearth",measurement_type:"depth",value:18,unit:"in",method:"tape",confidence:"verified",photo_id:"photo-2",technician_verified:true}],
-    findings:[{id:"finding-1",system_id:"system-1",component:"Hearth",raw_note:"Field note",ai_suggestion:"Draft wording",review_state:"technician_confirmed",status:"observation_noted",photo_ids:["photo-1","photo-2"],measurement_ids:["measurement-1"]}],
+    findings:[{id:"finding-1",system_id:"system-1",component:"Hearth",raw_note:"Field note",ai_suggestion:"Draft wording",review_state:"technician_confirmed",status:"observation_noted",source_sha256:[hash,"f".repeat(64)],photo_ids:["photo-1","photo-2"],measurement_ids:["measurement-1"]}],
     photos:[
       {id:"photo-1",system_id:"system-1",source_sha256:hash,category:"hearth",finding_ids:["finding-1"],review_state:"not_requested"},
       {id:"photo-2",system_id:"system-2",source_sha256:"c".repeat(64),category:"appliance",finding_ids:["finding-1"],review_state:"not_requested"}
@@ -286,6 +286,8 @@ test("inspection foundation preserves valid links and rejects cross-system evide
   });
   assert.ok(inspection);
   assert.equal(inspection.inspection_type,"level_2");
+  assert.deepEqual(inspection.findings[0].source_sha256,[hash]);
+  assert.deepEqual(inspection.evidence,[{sha256:hash,system_id:"system-1",role:"inspection_photo",name:"",page_number:null},{sha256:"c".repeat(64),system_id:"system-2",role:"inspection_photo",name:"",page_number:null}]);
   assert.deepEqual(inspection.findings[0].photo_ids,["photo-1"]);
   assert.deepEqual(inspection.photos[1].finding_ids,[]);
   assert.equal(inspection.measurements[0].photo_id,null);
@@ -300,6 +302,39 @@ test("inspection foundation preserves valid links and rejects cross-system evide
   assert.equal(upsertInspection([],inspection)[0].id,"inspection-1");
   const roundTrip=parseInspections(serializeInspections([inspection]));
   assert.deepEqual(roundTrip,[inspection]);
+});
+
+test("inspection evidence stays scoped to its chimney system",()=>{
+  const sharedHash="1".repeat(64),otherHash="2".repeat(64);
+  const inspection=normalizeInspection({
+    version:1,id:"inspection-evidence",created_at:"2026-09-03T12:00:00.000Z",
+    customer:{id:"customer-1"},property:{id:"property-1",customer_id:"customer-1"},
+    systems:[
+      {id:"system-1",property_id:"property-1",system_type:"masonry_fireplace"},
+      {id:"system-2",property_id:"property-1",system_type:"wood_stove"}
+    ],
+    evidence:[
+      {sha256:sharedHash,system_id:null,role:"manual",name:"Manufacturer manual",page_number:12},
+      {sha256:otherHash,system_id:"system-2",role:"field_document"},
+      {sha256:"invalid",system_id:"system-1",role:"manual"}
+    ],
+    findings:[{id:"finding-1",system_id:"system-1",source_sha256:[sharedHash,otherHash]}]
+  });
+  assert.ok(inspection);
+  assert.deepEqual(inspection.findings[0].source_sha256,[sharedHash]);
+  assert.equal(inspection.evidence.length,2);
+  assert.equal(inspection.evidence[0].page_number,12);
+
+  const crowded=normalizeInspection({
+    version:1,id:"inspection-crowded-evidence",created_at:"2026-09-03T12:00:00.000Z",
+    customer:{id:"customer-1"},property:{id:"property-1",customer_id:"customer-1"},
+    systems:[{id:"system-1",property_id:"property-1",system_type:"masonry_fireplace"}],
+    evidence:Array.from({length:1000},(_,index)=>({sha256:index.toString(16).padStart(64,"0"),role:"manual"})),
+    photos:[{id:"photo-1",system_id:"system-1",source_sha256:"f".repeat(64),category:"firebox"}]
+  });
+  assert.ok(crowded);
+  assert.equal(crowded.evidence.length,1000);
+  assert.deepEqual(crowded.evidence[0],{sha256:"f".repeat(64),system_id:"system-1",role:"inspection_photo",name:"",page_number:null});
 });
 
 test("inspection browser serialization recovers conservatively",()=>{

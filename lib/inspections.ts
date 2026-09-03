@@ -4,6 +4,7 @@ export const MAX_INSPECTION_SYSTEMS=12;
 export const MAX_INSPECTION_FINDINGS=500;
 export const MAX_INSPECTION_MEASUREMENTS=500;
 export const MAX_INSPECTION_PHOTOS=500;
+export const MAX_INSPECTION_EVIDENCE=1000;
 
 const STORAGE_KEY="chimneyai_inspections_v1";
 const INSPECTION_TYPES=["level_1","level_2","limited_scope","service_documentation","other"] as const;
@@ -17,6 +18,7 @@ const AI_CONFIDENCE_LEVELS=["low","moderate","high"] as const;
 const MEASUREMENT_METHODS=["manual","tape","laser","camera_assisted","calculated"] as const;
 const MEASUREMENT_CONFIDENCE=["technician_entered","ai_estimated","verified"] as const;
 const PHOTO_CATEGORIES=["firebox","hearth","damper","smoke_chamber","flue","cap","crown","chase_cover","flashing","chimney_exterior","attic","firestop","insulation_shield","connector","appliance","data_plate","clearance","defect","repair","before","after","other"] as const;
+const EVIDENCE_ROLES=["inspection_photo","manual","data_plate","field_document","other"] as const;
 
 export type InspectionType=typeof INSPECTION_TYPES[number];
 export type InspectionStatus=typeof INSPECTION_STATUSES[number];
@@ -29,6 +31,7 @@ export type AiConfidence=typeof AI_CONFIDENCE_LEVELS[number];
 export type MeasurementMethod=typeof MEASUREMENT_METHODS[number];
 export type MeasurementConfidence=typeof MEASUREMENT_CONFIDENCE[number];
 export type PhotoCategory=typeof PHOTO_CATEGORIES[number];
+export type EvidenceRole=typeof EVIDENCE_ROLES[number];
 
 export type InspectionCustomer={id:string;first_name:string;last_name:string;email:string;phone:string;notes:string};
 export type InspectionProperty={id:string;customer_id:string;street_address:string;city:string;state:string;postal_code:string;notes:string};
@@ -52,12 +55,13 @@ export type InspectionPhoto={
   id:string;system_id:string;source_sha256:string;category:PhotoCategory;caption:string;finding_ids:string[];
   ai_category_suggestion:PhotoCategory|null;ai_confidence:AiConfidence|null;review_state:ReviewState;reviewed_by:string|null;reviewed_at:string|null;
 };
+export type InspectionEvidence={sha256:string;system_id:string|null;role:EvidenceRole;name:string;page_number:number|null};
 export type InspectionReportLifecycle={status:ReportStatus;signature_status:SignatureStatus;revision:number;signed_at:string|null;delivered_at:string|null};
 export type Inspection={
   version:typeof INSPECTION_SCHEMA_VERSION;id:string;company_id:string|null;technician:InspectionTechnician;
   customer:InspectionCustomer;property:InspectionProperty;systems:InspectionSystem[];inspection_type:InspectionType;
   inspection_date:string;status:InspectionStatus;started_at:string|null;completed_at:string|null;
-  pro_case_id:string|null;findings:InspectionFinding[];measurements:InspectionMeasurement[];photos:InspectionPhoto[];
+  pro_case_id:string|null;evidence:InspectionEvidence[];findings:InspectionFinding[];measurements:InspectionMeasurement[];photos:InspectionPhoto[];
   report:InspectionReportLifecycle;created_at:string;updated_at:string;
 };
 
@@ -99,6 +103,15 @@ export function normalizeInspection(value:unknown):Inspection|null{
     } satisfies InspectionSystem];
   }).filter((system,index,all)=>all.findIndex(candidate=>candidate.id===system.id)===index).slice(0,MAX_INSPECTION_SYSTEMS);
   const systemIds=new Set(systems.map(system=>system.id));
+
+  const explicitEvidence=(Array.isArray(root.evidence)?root.evidence:[]).flatMap(item=>{
+    const evidence=record(item),sha256=text(evidence.sha256,64).toLowerCase(),systemId=nullableText(evidence.system_id,100);
+    if(!/^[a-f0-9]{64}$/.test(sha256)||(systemId&&!systemIds.has(systemId)))return [];
+    const rawPage=evidence.page_number;
+    return [{sha256,system_id:systemId,role:enumValue(evidence.role,EVIDENCE_ROLES,"other"),name:text(evidence.name,500),
+      page_number:typeof rawPage==="number"&&Number.isSafeInteger(rawPage)&&rawPage>0?rawPage:null} satisfies InspectionEvidence];
+  }).filter((evidence,index,all)=>all.findIndex(candidate=>candidate.sha256===evidence.sha256&&candidate.system_id===evidence.system_id&&candidate.role===evidence.role)===index)
+    .slice(0,MAX_INSPECTION_EVIDENCE);
 
   const measurements=(Array.isArray(root.measurements)?root.measurements:[]).flatMap(item=>{
     const measurement=record(item),measurementId=id(measurement.id),systemId=id(measurement.system_id);
@@ -159,7 +172,14 @@ export function normalizeInspection(value:unknown):Inspection|null{
   const findingSystemById=new Map(preliminaryFindings.map(finding=>[finding.id,finding.system_id]));
   const measurementSystemById=new Map(measurements.map(measurement=>[measurement.id,measurement.system_id]));
   const safePhotos=photos.map(photo=>({...photo,finding_ids:photo.finding_ids.filter(value=>findingSystemById.get(value)===photo.system_id)}));
+  const photoEvidence=photos.map(photo=>({sha256:photo.source_sha256,system_id:photo.system_id,
+    role:photo.category==="data_plate"?"data_plate":"inspection_photo",name:"",page_number:null} satisfies InspectionEvidence));
+  const evidence=[...photoEvidence,...explicitEvidence]
+    .filter((item,index,all)=>all.findIndex(candidate=>candidate.sha256===item.sha256&&candidate.system_id===item.system_id&&candidate.role===item.role)===index)
+    .slice(0,MAX_INSPECTION_EVIDENCE);
+  const evidenceSupportsFinding=(sha256:string,systemId:string)=>evidence.some(item=>item.sha256===sha256&&(item.system_id===null||item.system_id===systemId));
   const findings=preliminaryFindings.map(finding=>({...finding,
+    source_sha256:finding.source_sha256.filter(sha256=>evidenceSupportsFinding(sha256,finding.system_id)),
     photo_ids:finding.photo_ids.filter(value=>photoSystemById.get(value)===finding.system_id),
     measurement_ids:finding.measurement_ids.filter(value=>measurementSystemById.get(value)===finding.system_id)
   }));
@@ -191,7 +211,7 @@ export function normalizeInspection(value:unknown):Inspection|null{
       state:text(propertyRecord.state,100),postal_code:text(propertyRecord.postal_code,40),notes:text(propertyRecord.notes,3000)},
     systems,inspection_type:inspectionType(root.inspection_type),inspection_date:text(root.inspection_date,100),
     status:inspectionStatus,started_at:startedAt,completed_at:completedAt,
-    pro_case_id:nullableText(root.pro_case_id,100),findings,measurements:safeMeasurements,photos:safePhotos,
+    pro_case_id:nullableText(root.pro_case_id,100),evidence,findings,measurements:safeMeasurements,photos:safePhotos,
     report:{status:reportStatus,signature_status:signatureStatus,
       revision:typeof reportRecord.revision==="number"&&Number.isSafeInteger(reportRecord.revision)&&reportRecord.revision>=0?reportRecord.revision:0,
       signed_at:signedAt,delivered_at:deliveredAt},

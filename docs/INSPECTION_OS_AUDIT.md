@@ -215,6 +215,7 @@ Structured label OCR, chimney-specific photo classification/second look, voice c
 - A measurement records unit, method, confidence, and technician verification independently.
 - Verified measurements require a finite value, measurement type, unit, verifier identity, and verification timestamp; incomplete camera claims remain estimates.
 - A photo/evidence relation references a valid source SHA-256 without copying bytes.
+- Finding source fingerprints must resolve to inspection-wide evidence or evidence belonging to the same chimney system; unrelated-system fingerprints are removed.
 - Existing cloud tables remain intact; new inspection tables are additive and owner-scoped.
 - Inspection revision RLS verifies both the revision owner and ownership of its referenced parent inspection.
 - A forward migration applies the same parent-ownership requirement to legacy Pro Case source and revision rows.
