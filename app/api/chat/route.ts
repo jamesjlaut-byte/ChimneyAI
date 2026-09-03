@@ -5,6 +5,7 @@ import {promptForMode} from "@/lib/prompts";
 import {proSourceInstruction} from "@/lib/pro-source";
 import {modelsConflict} from "@/lib/model-identity";
 import {checkChatRateLimit} from "@/lib/request-rate-limit";
+import {fieldContextInstruction} from "@/lib/chat-context";
 
 export async function POST(req:Request){
   const announcedSize=Number(req.headers.get("content-length"));
@@ -34,7 +35,7 @@ export async function POST(req:Request){
   if(!process.env.OPENAI_API_KEY)return Response.json({ok:false,error:"openai_not_configured"},{status:503});
 
   const client=new OpenAI({apiKey:process.env.OPENAI_API_KEY});
-  const context=parsed.data.context?`\n\nCURRENT OPTIONAL FIELD CONTEXT:\n${JSON.stringify(parsed.data.context,null,2)}`:"";
+  const context=fieldContextInstruction(parsed.data.context);
   const attachments=parsed.data.attachments||[];
   const sourceManifest=parsed.data.source_manifest||[];
   const sourceModel=parsed.data.pro_source?.model?.trim();
