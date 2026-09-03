@@ -15,7 +15,7 @@ import {HOMEOWNER_SYSTEM_PROMPT,PRO_SYSTEM_PROMPT,promptForMode} from "../lib/pr
 import {proSourceInstruction} from "../lib/pro-source.ts";
 import {checkChatRateLimit} from "../lib/request-rate-limit.ts";
 import {provenanceFromAttachment} from "../lib/source-provenance.ts";
-import {isMeaningfulProDraft,parseProDraft} from "../lib/pro-draft.ts";
+import {isMeaningfulProDraft,parseProDraft,prepareProDraft} from "../lib/pro-draft.ts";
 import {sha256Blob} from "../lib/source-file-store.ts";
 
 test("manufacturer registry resolves canonical names and field aliases",()=>{
@@ -248,6 +248,19 @@ test("active Pro drafts are versioned, bounded, and safely normalized",()=>{
   assert.equal(draft.source_files[0].storage_status,"missing");
   assert.equal(isMeaningfulProDraft(draft),true);
   assert.equal(isMeaningfulProDraft({...draft,text:"",messages:[],source_files:[],source:normalizeProSource({}),manual:normalizeManual({})}),false);
+});
+
+test("active Pro draft persistence keeps the newest bounded history",()=>{
+  const messages=Array.from({length:205},(_,index)=>({role:index%2===0?"user":"assistant",content:`Message ${index}`}));
+  messages.splice(202,0,{role:"assistant",kind:"system_error",content:"Transient failure"});
+  const draft=prepareProDraft({
+    text:"Current field note",messages,
+    source:normalizeProSource({}),manual:normalizeManual({}),source_files:[]
+  },"2026-09-03T12:00:00.000Z");
+  assert.equal(draft.messages.length,200);
+  assert.equal(draft.messages[0].content,"Message 5");
+  assert.equal(draft.messages.at(-1).content,"Message 204");
+  assert.equal(draft.messages.some(message=>message.content==="Transient failure"),false);
 });
 
 test("attachment provenance preserves the source fingerprint",()=>{

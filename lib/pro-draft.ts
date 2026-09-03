@@ -1,4 +1,5 @@
 import {recordableHistory,type ChatHistoryMessage} from "./chat-history.ts";
+import {MAX_CASE_MESSAGES} from "./case-limits.ts";
 import {normalizeManual,normalizeProSource,normalizeSavedMessages,normalizeSourceFiles} from "./pro-cases.ts";
 import type {ManualVerification} from "@/components/ManualVerificationCard";
 import type {ProSourceState} from "@/components/ProSourceDesk";
@@ -49,14 +50,18 @@ export function loadProDraft(){
   catch{return null}
 }
 
-export function saveProDraft(draft:Omit<ActiveProDraft,"version"|"saved_at">){
-  if(typeof window==="undefined")return;
-  const value:ActiveProDraft={
+export function prepareProDraft(draft:Omit<ActiveProDraft,"version"|"saved_at">,savedAt=new Date().toISOString()):ActiveProDraft{
+  return {
     ...draft,
     version:1,
-    saved_at:new Date().toISOString(),
-    messages:recordableHistory(draft.messages)
+    saved_at:savedAt,
+    messages:recordableHistory(draft.messages).slice(-MAX_CASE_MESSAGES)
   };
+}
+
+export function saveProDraft(draft:Omit<ActiveProDraft,"version"|"saved_at">){
+  if(typeof window==="undefined")return;
+  const value=prepareProDraft(draft);
   localStorage.setItem(KEY,JSON.stringify(value));
   return value.saved_at;
 }
