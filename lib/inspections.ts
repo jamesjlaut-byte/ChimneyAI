@@ -247,9 +247,15 @@ export function saveInspections(inspections:Inspection[]){
   catch{throw new Error("Browser storage is full or unavailable. Inspection data was not removed; keep this page open and export important work.")}
 }
 
-export function upsertInspection(inspections:Inspection[],incoming:Inspection){
+export function upsertInspection(inspections:Inspection[],incoming:Inspection,expected?:Inspection){
   const normalized=normalizeInspection(incoming);
   if(!normalized)throw new Error("Inspection record is invalid and was not saved.");
+  if(expected){
+    const current=inspections.find(item=>item.id===normalized.id);
+    if(expected.id!==normalized.id||!current||JSON.stringify(normalizeInspection(current))!==JSON.stringify(normalizeInspection(expected))){
+      throw new Error("The inspection changed while this update was being prepared. Newer work was preserved. Reopen the inspection and retry the photo update.");
+    }
+  }
   const next=[normalized,...inspections.filter(item=>item.id!==normalized.id)]
     .sort((a,b)=>Date.parse(b.updated_at)-Date.parse(a.updated_at)).slice(0,MAX_LOCAL_INSPECTIONS);
   validateInspectionCollectionUpdate(inspections,next);

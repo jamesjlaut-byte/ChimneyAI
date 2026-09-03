@@ -25,7 +25,7 @@ export default function InspectionPhotoCapture({inspection,finding,component,lab
   const photos=finding?inspection.photos.filter(photo=>photo.system_id===system?.id&&photo.finding_ids.includes(finding.id)):[];
   useEffect(()=>{setCategory(defaultPhotoCategory(component));setCaption("");setMessage("")},[component]);
 
-  function persistInspection(candidate:Inspection){saveInspections(upsertInspection(loadInspections(),candidate));onChange(candidate)}
+  function persistInspection(candidate:Inspection){saveInspections(upsertInspection(loadInspections(),candidate,inspection));onChange(candidate)}
 
   async function addPhoto(event:ChangeEvent<HTMLInputElement>){
     const file=event.target.files?.[0];if(!file||!system||!finding)return;

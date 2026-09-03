@@ -361,6 +361,14 @@ test("inspection foundation preserves valid links and rejects cross-system evide
   assert.equal(upsertInspection([],inspection)[0].id,"inspection-1");
   const roundTrip=parseInspections(serializeInspections([inspection]));
   assert.deepEqual(roundTrip,[inspection]);
+  assert.deepEqual(upsertInspection(roundTrip,inspection,inspection),[inspection]);
+  const newer={...inspection,findings:inspection.findings.map(finding=>({...finding,raw_note:"Newer technician note"}))};
+  assert.throws(()=>upsertInspection([newer],inspection,inspection),/Newer work was preserved/);
+  assert.equal(newer.findings[0].raw_note,"Newer technician note");
+  assert.throws(()=>upsertInspection([],inspection,inspection),/Newer work was preserved/);
+  assert.throws(()=>upsertInspection([inspection],inspection,{...inspection,id:"different-inspection"}),/Newer work was preserved/);
+  const photoCapture=readFileSync(new URL("../components/InspectionPhotoCapture.tsx",import.meta.url),"utf8");
+  assert.ok(photoCapture.includes("upsertInspection(loadInspections(),candidate,inspection)"));
 });
 
 test("inspection evidence stays scoped to its chimney system",()=>{
