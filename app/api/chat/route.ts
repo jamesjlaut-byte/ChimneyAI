@@ -3,6 +3,7 @@ import type {ResponseInputContent,ResponseInputItem} from "openai/resources/resp
 import {z} from "zod";
 import {promptForMode} from "@/lib/prompts";
 import {proSourceInstruction} from "@/lib/pro-source";
+import {modelsConflict} from "@/lib/model-identity";
 
 const Attachment=z.object({
   kind:z.enum(["image","document_text"]),
@@ -81,8 +82,7 @@ export async function POST(req:Request){
   const sourceManifest=parsed.data.source_manifest||[];
   const sourceModel=parsed.data.pro_source?.model?.trim();
   const verifiedModel=parsed.data.manual_verification?.verified_model?.trim();
-  const normalizeModel=(value:string)=>value.toLowerCase().replace(/[^a-z0-9]/g,"");
-  const modelMismatch=Boolean(sourceModel&&verifiedModel&&normalizeModel(sourceModel)!==normalizeModel(verifiedModel));
+  const modelMismatch=modelsConflict(sourceModel,verifiedModel);
 
   const input:ResponseInputItem[]=[];
   parsed.data.messages.forEach((m,index)=>{

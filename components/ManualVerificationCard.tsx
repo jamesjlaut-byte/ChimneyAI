@@ -1,6 +1,7 @@
 "use client";
 import {useEffect,useMemo,useState} from "react";
 import {hashManualIdentity} from "@/lib/source-hash";
+import {modelsConflict} from "@/lib/model-identity";
 
 export type ManualVerification={
   manual_title:string;
@@ -24,15 +25,16 @@ export default function ManualVerificationCard({
   function set<K extends keyof ManualVerification>(k:K,v:ManualVerification[K]){onChange({...value,[k]:v});}
   const [identityHash,setIdentityHash]=useState("");
   useEffect(()=>{let alive=true;hashManualIdentity({manufacturer,model,...value}).then(h=>{if(alive)setIdentityHash(h)});return()=>{alive=false}},[manufacturer,model,value]);
+  const modelConflict=modelsConflict(model,value.verified_model);
   const completeness=useMemo(()=>{
     const checks=[
-      ["Exact model",Boolean(value.verified_model.trim())],
+      ["Exact model",Boolean(value.verified_model.trim())&&!modelConflict],
       ["Manual title",Boolean(value.manual_title.trim())],
       ["Official source URL",Boolean(value.official_url.trim())],
       ["Revision / date",Boolean(value.manual_revision.trim()||value.effective_date.trim())]
     ] as const;
     return checks;
-  },[value]);
+  },[value,modelConflict]);
 
   return <details className="verificationCard">
     <summary><span>Manual Verification Record</span><small>identity · revision · source · page</small></summary>
@@ -41,6 +43,11 @@ export default function ManualVerificationCard({
         <b>Appliance being researched</b>
         <span>{manufacturer||"Manufacturer not entered"} · {model||"Model not entered"}</span>
       </div>
+      {modelConflict&&<div className="verificationConflict" role="alert">
+        <b>Manual model does not match the appliance record.</b>
+        <span>Source Desk: {model} · Manual record: {value.verified_model}</span>
+        <p>Do not apply product-specific requirements until the exact manual applicability is established.</p>
+      </div>}
       <div className="verificationGrid">
         <label>Verified model<input value={value.verified_model} onChange={e=>set("verified_model",e.target.value)} placeholder={model||"Exact model from label/manual"}/></label>
         <label>Manual title<input value={value.manual_title} onChange={e=>set("manual_title",e.target.value)} placeholder="Exact document title"/></label>
