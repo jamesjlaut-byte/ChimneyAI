@@ -5,13 +5,30 @@ import {promptForMode} from "@/lib/prompts";
 import {proSourceInstruction} from "@/lib/pro-source";
 import {modelsConflict} from "@/lib/model-identity";
 
-const Attachment=z.object({
-  kind:z.enum(["image","document_text"]),
+const MAX_REQUEST_BYTES=4_000_000;
+const AttachmentMetadata={
   name:z.string().max(240),
-  mime_type:z.string().max(120),
-  data_url:z.string().max(12_000_000).optional(),
-  text:z.string().max(60_000).optional()
-});
+  id:z.string().max(100).optional(),
+  byte_size:z.number().int().nonnegative().max(15*1024*1024).optional(),
+  sha256:z.string().regex(/^[a-f0-9]{64}$/i).optional(),
+  prepared_at:z.string().datetime().optional(),
+  page_count:z.number().int().positive().max(100_000).optional(),
+  text_truncated:z.boolean().optional()
+};
+const Attachment=z.discriminatedUnion("kind",[
+  z.object({
+    ...AttachmentMetadata,
+    kind:z.literal("image"),
+    mime_type:z.enum(["image/jpeg","image/png","image/webp","image/gif"]),
+    data_url:z.string().max(MAX_REQUEST_BYTES).regex(/^data:image\/(?:jpeg|png|webp|gif);base64,[a-z0-9+/]+=*$/i)
+  }).strict(),
+  z.object({
+    ...AttachmentMetadata,
+    kind:z.literal("document_text"),
+    mime_type:z.string().max(120).regex(/^(?:application\/(?:pdf|octet-stream|csv)|text\/[a-z0-9.+-]+)$/i),
+    text:z.string().min(1).max(60_000)
+  }).strict()
+]);
 const SourceManifestRecord=z.object({
   file_name:z.string().max(240),
   mime_type:z.string().max(120),
@@ -27,14 +44,7 @@ const SourceManifestRecord=z.object({
 const Body=z.object({
   mode:z.enum(["homeowner","pro"]),
   messages:z.array(z.object({role:z.enum(["user","assistant"]),content:z.string().min(1).max(20000)})).min(1).max(40),
-  attachments:z.array(Attachment.extend({
-    id:z.string().optional(),
-    byte_size:z.number().nonnegative().optional(),
-    sha256:z.string().regex(/^[a-f0-9]{64}$/i).optional(),
-    prepared_at:z.string().optional(),
-    page_count:z.number().int().positive().optional(),
-    text_truncated:z.boolean().optional()
-  })).max(6).optional(),
+  attachments:z.array(Attachment).max(6).optional(),
   source_manifest:z.array(SourceManifestRecord).max(30).optional(),
   context:z.object({
     appliance_type:z.string().max(200).optional(),manufacturer:z.string().max(200).optional(),
@@ -66,9 +76,18 @@ const Body=z.object({
 });
 
 export async function POST(req:Request){
+  const announcedSize=Number(req.headers.get("content-length"));
+  if(Number.isFinite(announcedSize)&&announcedSize>MAX_REQUEST_BYTES){
+    return Response.json({ok:false,error:"payload_too_large"},{status:413});
+  }
+  let rawBody:string;
   let requestBody:unknown;
   try{
-    requestBody=await req.json();
+    rawBody=await req.text();
+    if(new TextEncoder().encode(rawBody).byteLength>MAX_REQUEST_BYTES){
+      return Response.json({ok:false,error:"payload_too_large"},{status:413});
+    }
+    requestBody=JSON.parse(rawBody);
   }catch{
     return Response.json({ok:false,error:"invalid_json"},{status:400});
   }
