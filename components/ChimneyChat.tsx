@@ -14,6 +14,7 @@ import CloudWorkspace from "@/components/CloudWorkspace";
 import CloudCaseBrowser from "@/components/CloudCaseBrowser";
 import {modelsConflict} from "@/lib/model-identity";
 import MessageContent from "@/components/MessageContent";
+import {defaultSourceRole} from "@/lib/default-source-role";
 
 type Mode="homeowner"|"pro"; type Msg={role:"user"|"assistant";content:string;kind?:"analysis"|"system_error"};
 const starterHomeowner=["Explain this inspection report to me.","What does this repair recommendation mean?","What should I ask before hiring a chimney sweep?","Can you explain what you can see in a fireplace photo?"];
@@ -56,7 +57,7 @@ export default function ChimneyChat({mode}:{mode:Mode}){
 
   async function addFiles(files:FileList|null){
     if(!files||busy)return;
-    const selected=Array.from(files),available=6-attachments.length;
+    const selected=Array.from(files),available=6-attachments.length,sourceContext=proSource;
     if(available<=0){setAttachmentStatus("Remove an attachment before adding another. Maximum: 6.");return}
     setAttachmentStatus(`Preparing ${Math.min(selected.length,available)} attachment${Math.min(selected.length,available)===1?"":"s"}…`);
     const next=[...attachments],errors:string[]=[];
@@ -74,7 +75,7 @@ export default function ChimneyChat({mode}:{mode:Mode}){
         const records=prepared.flatMap(file=>{
           if(hashes.has(file.sha256))return [];
           hashes.add(file.sha256);
-          const role:SourceProvenanceRecord["role"]=file.mime_type==="application/pdf"?"manual":file.kind==="image"?"field_photo":"other";
+          const role=defaultSourceRole(file,sourceContext);
           return [provenanceFromAttachment(file,role)];
         });
         return records.length?[...current,...records]:current;
@@ -170,7 +171,7 @@ export default function ChimneyChat({mode}:{mode:Mode}){
     <ProSourceDesk value={proSource} onChange={setProSource}/>
     <ManualFinder manufacturer={proSource.manufacturer} model={proSource.model} onPrepareQuestion={setText}/>
     <ManualVerificationCard value={manualVerification} onChange={setManualVerification} manufacturer={proSource.manufacturer} model={proSource.model}/>
-    <SourceManifest attachments={attachments} records={sourceFiles} onChange={setSourceFiles}/>
+    <SourceManifest attachments={attachments} records={sourceFiles} sourceContext={proSource} onChange={setSourceFiles}/>
     <ProFieldTools/>
     <ProCaseManager source={proSource} manual={manualVerification} messages={messages} sourceFiles={sourceFiles}
       onLoad={({source,manual,question,messages:loadedMessages,sourceFiles:loadedSourceFiles})=>{setProSource(source);setManualVerification(manual);setMessages(loadedMessages);setSourceFiles(loadedSourceFiles);if(question)setText(question)}}

@@ -4,12 +4,14 @@ import type {ChatAttachment} from "@/lib/client-attachments";
 import type {SourceProvenanceRecord} from "@/lib/source-provenance";
 import {provenanceFromAttachment} from "@/lib/source-provenance";
 import {deleteStoredSourceFile,getStoredSourceFile,persistRawFile,putStoredSourceFile,verifyStoredSourceFile} from "@/lib/source-file-store";
+import {defaultSourceRole,type SourceRoleContext} from "@/lib/default-source-role";
 
 export default function SourceManifest({
-  attachments,records,onChange
+  attachments,records,sourceContext,onChange
 }:{
   attachments:ChatAttachment[];
   records:SourceProvenanceRecord[];
+  sourceContext?:SourceRoleContext;
   onChange:(r:SourceProvenanceRecord[])=>void;
 }){
   const [busy,setBusy]=useState<string|null>(null);
@@ -34,10 +36,7 @@ export default function SourceManifest({
 
   function add(a:ChatAttachment){
     if(records.some(r=>r.sha256===a.sha256))return;
-    const defaultRole:SourceProvenanceRecord["role"]=
-      a.mime_type==="application/pdf"?"manual":
-      a.kind==="image"?"field_photo":"other";
-    onChange([...records,provenanceFromAttachment(a,defaultRole)]);
+    onChange([...records,provenanceFromAttachment(a,defaultSourceRole(a,sourceContext))]);
   }
 
   function update(hash:string,patch:Partial<SourceProvenanceRecord>){
