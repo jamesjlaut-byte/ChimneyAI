@@ -20,7 +20,7 @@ import {isMeaningfulProDraft,parseProDraft,prepareProDraft} from "../lib/pro-dra
 import {sha256Blob} from "../lib/source-file-store.ts";
 import {canTransitionInspectionStatus,normalizeInspection,parseInspections,serializeInspections,upsertInspection,validateInspectionCollectionUpdate} from "../lib/inspections.ts";
 import {firstIncompleteChecklistIndex,getInspectionChecklist,missingChecklistItems} from "../lib/inspection-checklists.ts";
-import {defaultPhotoCategory,MAX_INSPECTION_PHOTO_BYTES,validateInspectionPhoto} from "../lib/inspection-photo.ts";
+import {defaultPhotoCategory,MAX_INSPECTION_PHOTO_BYTES,recommendedPhotoGaps,validateInspectionPhoto} from "../lib/inspection-photo.ts";
 
 test("inspection photos use conservative component categories and file limits",()=>{
   assert.equal(defaultPhotoCategory("firebox"),"firebox");
@@ -30,6 +30,10 @@ test("inspection photos use conservative component categories and file limits",(
   assert.match(validateInspectionPhoto({size:0,type:"image/jpeg"}),/empty/);
   assert.match(validateInspectionPhoto({size:MAX_INSPECTION_PHOTO_BYTES+1,type:"image/png"}),/20 MB/);
   assert.match(validateInspectionPhoto({size:1024,type:"image/svg+xml"}),/JPEG/);
+  const checklist=[{id:"firebox",label:"Firebox",photoRecommended:true},{id:"doors",label:"Doors",photoRecommended:false},{id:"flue",label:"Flue",photoRecommended:true}];
+  const findings=[{id:"finding-firebox",component:"firebox",status:"satisfactory"},{id:"finding-doors",component:"doors",status:"satisfactory"},{id:"finding-flue",component:"flue",status:"unable_to_inspect"}];
+  assert.deepEqual(recommendedPhotoGaps(checklist,findings,[]),[checklist[0]]);
+  assert.deepEqual(recommendedPhotoGaps(checklist,findings,[{finding_ids:["finding-firebox"]}]),[]);
 });
 
 test("guided inspection checklists adapt to system and inspection level",()=>{

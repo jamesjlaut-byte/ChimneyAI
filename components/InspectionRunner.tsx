@@ -2,6 +2,7 @@
 import {useEffect,useMemo,useState,type FormEvent} from "react";
 import InspectionPhotoCapture from "@/components/InspectionPhotoCapture";
 import {firstIncompleteChecklistIndex,getInspectionChecklist,missingChecklistItems} from "@/lib/inspection-checklists";
+import {recommendedPhotoGaps} from "@/lib/inspection-photo";
 import {loadInspections,normalizeInspection,saveInspections,upsertInspection,type FindingStatus,type Inspection} from "@/lib/inspections";
 
 const STATUS_OPTIONS:ReadonlyArray<{value:FindingStatus;label:string}>=[
@@ -21,6 +22,8 @@ export default function InspectionRunner({inspection,onChange}:{inspection:Inspe
   const findingsByComponent=new Map(systemFindings.map(finding=>[finding.component,finding]));
   const completed=new Set(systemFindings.map(finding=>finding.component)).size;
   const missing=missingChecklistItems(checklist,systemFindings.map(finding=>finding.component));
+  const systemPhotos=inspection.photos.filter(photo=>photo.system_id===system?.id);
+  const photoGaps=recommendedPhotoGaps(checklist,systemFindings,systemPhotos);
   const hasUnsavedChanges=findingStatus!==(existing?.status||"")||note!==(existing?.raw_note||"");
 
   useEffect(()=>{
@@ -62,7 +65,7 @@ export default function InspectionRunner({inspection,onChange}:{inspection:Inspe
   return <section className="inspectionRunner" aria-labelledby="inspection-runner-title">
     <div className="inspectionRunnerHead"><div><small>Guided component review</small><b id="inspection-runner-title">{system.display_name}</b></div><span>{completed} of {checklist.length} documented</span></div>
     <div className="inspectionProgress" aria-label={`${completed} of ${checklist.length} components documented`}><span style={{width:`${Math.round(completed/checklist.length*100)}%`}} /></div>
-    <details className="inspectionStepList"><summary>Review steps <small>{completed===checklist.length?"All documented":"Tap to revisit a component"}</small></summary><div>{checklist.map((item,index)=>{const saved=findingsByComponent.get(item.id);return <button type="button" key={item.id} className={index===step?"active":""} aria-current={index===step?"step":undefined} onClick={()=>goToStep(index)}><span>{index+1}. {item.label}</span><small>{saved?STATUS_OPTIONS.find(option=>option.value===saved.status)?.label:"Not documented"}</small></button>})}</div></details>
+    <details className="inspectionStepList"><summary>Review steps <small>{completed===checklist.length?"All documented":"Tap to revisit a component"}</small></summary><div>{checklist.map((item,index)=>{const saved=findingsByComponent.get(item.id),photoCount=saved?systemPhotos.filter(photo=>photo.finding_ids.includes(saved.id)).length:0;return <button type="button" key={item.id} className={index===step?"active":""} aria-current={index===step?"step":undefined} onClick={()=>goToStep(index)}><span>{index+1}. {item.label}</span><small>{saved?`${STATUS_OPTIONS.find(option=>option.value===saved.status)?.label}${photoCount?` · ${photoCount} photo${photoCount===1?"":"s"}`:""}`:"Not documented"}</small></button>})}</div></details>
     <form onSubmit={saveFinding}>
       <div className="inspectionStepMeta"><span>Step {step+1} of {checklist.length}</span>{current.photoRecommended?<em>Photo recommended</em>:<em>Photo optional</em>}</div>
       <h3>{current.label}</h3>
@@ -71,6 +74,7 @@ export default function InspectionRunner({inspection,onChange}:{inspection:Inspe
       <div className="inspectionRunnerActions"><button type="button" disabled={step===0} onClick={()=>goToStep(step-1)}>Previous</button><span role="status" aria-live="polite">{message}</span><button type="submit" disabled={!findingStatus}>{step===checklist.length-1?"Save component":"Save & next"}</button></div>
     </form>
     <InspectionPhotoCapture inspection={inspection} finding={existing} component={current.id} label={current.label} onChange={onChange}/>
+    <div className={`inspectionPhotoCoverage ${photoGaps.length?"needsPhotos":"covered"}`}><b>{photoGaps.length?`${photoGaps.length} recommended photo${photoGaps.length===1?"":"s"} missing`:"Recommended photo coverage complete"}</b><span>{photoGaps.length?photoGaps.slice(0,3).map(item=>item.label).join(" · ")+(photoGaps.length>3?` · +${photoGaps.length-3} more`:""):"Every inspectable component marked for photo documentation has an attached image."} Recommended photos are a quality-control prompt, not proof that an area was accessible or a condition exists.</span></div>
     <section className={`inspectionCompletion ${missing.length?"incomplete":"complete"}`} aria-labelledby="inspection-completion-title"><div><small>Completion review</small><b id="inspection-completion-title">{missing.length?`${missing.length} component${missing.length===1?"":"s"} still undocumented`:inspection.status==="ready_for_review"?"Ready for technician review":"All components documented"}</b><span>{missing.length?missing.slice(0,3).map(item=>item.label).join(" · ")+(missing.length>3?` · +${missing.length-3} more`:""):"This means the checklist is complete—not that the system is safe or compliant."}</span></div><button type="button" onClick={markReadyForReview} disabled={Boolean(missing.length)||hasUnsavedChanges||inspection.status!=="in_progress"}>{inspection.status==="ready_for_review"?"Ready for review":"Mark ready for review"}</button></section>
     <p>AI can assist with wording later. The technician remains responsible for every status and observation.</p>
   </section>;

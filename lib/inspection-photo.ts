@@ -1,4 +1,5 @@
 import type {PhotoCategory} from "@/lib/inspections";
+import type {InspectionChecklistItem} from "@/lib/inspection-checklists";
 
 export const MAX_INSPECTION_PHOTO_BYTES=20*1024*1024;
 export const INSPECTION_PHOTO_TYPES=new Set(["image/jpeg","image/png","image/webp","image/heic","image/heif"]);
@@ -17,4 +18,15 @@ export function validateInspectionPhoto(file:{size:number;type:string}):string|n
   if(file.size>MAX_INSPECTION_PHOTO_BYTES)return "Inspection photos must be 20 MB or smaller.";
   if(!INSPECTION_PHOTO_TYPES.has(file.type.toLowerCase()))return "Use a JPEG, PNG, WebP, HEIC, or HEIF inspection photo.";
   return null;
+}
+
+export function recommendedPhotoGaps(checklist:InspectionChecklistItem[],findings:Array<{id:string;component:string;status:string}>,photos:Array<{finding_ids:string[]}>):InspectionChecklistItem[]{
+  const findingsByComponent=new Map(findings.map(finding=>[finding.component,finding]));
+  const photographedFindingIds=new Set(photos.flatMap(photo=>photo.finding_ids));
+  return checklist.filter(item=>{
+    if(!item.photoRecommended)return false;
+    const finding=findingsByComponent.get(item.id);
+    if(!finding||finding.status==="not_applicable"||finding.status==="unable_to_inspect")return false;
+    return !photographedFindingIds.has(finding.id);
+  });
 }

@@ -187,6 +187,8 @@ Photo records, categories, captions, component linkage, raw notes, AI suggestion
 
 First increment: after saving a component finding, the technician can take or select a supported field photo, choose its category, add a factual caption, and persist the exact bytes in the existing browser Source File Vault. ChimneyAI hashes each image with SHA-256 and links the photo/evidence record to both the active system and finding. Existing images can be linked without duplicating bytes, captions/categories remain technician-editable, and no image automatically creates or confirms a defect.
 
+Second increment: the component navigator displays attached-photo counts and the completion area calculates recommended-photo gaps for inspectable components. `Unable to inspect`, `Not applicable`, and explicitly photo-optional steps do not create misleading missing-photo warnings. Coverage remains advisory so a technician can document legitimate access limitations without manufacturing evidence.
+
 ### Phase 4 — Measurements and source integration
 
 Persist calculator inputs/results/methods, source/manual citations, Appliance Passport manual link, contradiction checks, and deterministic QC foundations.
