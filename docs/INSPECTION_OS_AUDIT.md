@@ -209,6 +209,7 @@ Structured label OCR, chimney-specific photo classification/second look, voice c
 - Finding review and measurement verification provenance must match the technician assigned to the inspection; mismatched identities are not accepted as technician decisions.
 - AI finding and photo-category confidence is restricted to low/moderate/high and remains absent when no suggestion exists.
 - Signed or delivered records cannot be replaced without advancing the report revision, and incomplete signature/delivery states are conservatively downgraded.
+- Completion cannot precede inspection start; completed and delivered states require a completion timestamp, and delivery cannot precede completion.
 - Whole-collection browser saves enforce the same revision rules and cannot silently delete a signed or delivered inspection.
 - Cloud persistence rejects deletion of signed or delivered inspections and requires a higher report revision before changing their aggregate.
 - A measurement records unit, method, confidence, and technician verification independently.

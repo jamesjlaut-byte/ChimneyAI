@@ -168,13 +168,20 @@ export function normalizeInspection(value:unknown):Inspection|null{
   }));
 
   const reportRecord=record(root.report);
-  const signedAt=nullableTimestamp(reportRecord.signed_at),deliveredAt=nullableTimestamp(reportRecord.delivered_at);
+  const startedAt=nullableTimestamp(root.started_at);
+  const candidateCompletedAt=nullableTimestamp(root.completed_at);
+  const completedAt=candidateCompletedAt&&(!startedAt||Date.parse(candidateCompletedAt)>=Date.parse(startedAt))?candidateCompletedAt:null;
+  let signedAt=nullableTimestamp(reportRecord.signed_at),deliveredAt=nullableTimestamp(reportRecord.delivered_at);
   let signatureStatus=enumValue(reportRecord.signature_status,SIGNATURE_STATUSES,"not_requested");
   if(signatureStatus==="signed"&&!signedAt)signatureStatus="pending";
+  if(signatureStatus!=="signed")signedAt=null;
   let reportStatus=enumValue(reportRecord.status,REPORT_STATUSES,"not_started");
-  if(reportStatus==="delivered"&&!deliveredAt)reportStatus="completed";
+  if(reportStatus==="delivered"&&(!deliveredAt||!completedAt||Date.parse(deliveredAt)<Date.parse(completedAt))){reportStatus="completed";deliveredAt=null}
+  if(reportStatus!=="delivered")deliveredAt=null;
   let inspectionStatus=enumValue(root.status,INSPECTION_STATUSES,"draft");
+  if((inspectionStatus==="completed"||inspectionStatus==="delivered")&&!completedAt)inspectionStatus="ready_for_review";
   if(inspectionStatus==="delivered"&&reportStatus!=="delivered")inspectionStatus="completed";
+  if(reportStatus==="delivered"&&inspectionStatus!=="delivered"){reportStatus="completed";deliveredAt=null}
   return {
     version:INSPECTION_SCHEMA_VERSION,id:inspectionId,company_id:nullableText(root.company_id,100),
     technician:{id:id(technicianRecord.id),name:text(technicianRecord.name,200),credentials:stringList(technicianRecord.credentials,30,200)},
@@ -183,7 +190,7 @@ export function normalizeInspection(value:unknown):Inspection|null{
     property:{id:propertyId,customer_id:customerId,street_address:text(propertyRecord.street_address,300),city:text(propertyRecord.city,200),
       state:text(propertyRecord.state,100),postal_code:text(propertyRecord.postal_code,40),notes:text(propertyRecord.notes,3000)},
     systems,inspection_type:inspectionType(root.inspection_type),inspection_date:text(root.inspection_date,100),
-    status:inspectionStatus,started_at:nullableTimestamp(root.started_at),completed_at:nullableTimestamp(root.completed_at),
+    status:inspectionStatus,started_at:startedAt,completed_at:completedAt,
     pro_case_id:nullableText(root.pro_case_id,100),findings,measurements:safeMeasurements,photos:safePhotos,
     report:{status:reportStatus,signature_status:signatureStatus,
       revision:typeof reportRecord.revision==="number"&&Number.isSafeInteger(reportRecord.revision)&&reportRecord.revision>=0?reportRecord.revision:0,

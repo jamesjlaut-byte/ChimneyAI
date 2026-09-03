@@ -392,7 +392,7 @@ test("inspection foundation rejects ambiguous ownership and unsafe lifecycle jum
 
 test("inspection persistence protects signed and delivered report history",()=>{
   const base=normalizeInspection({
-    version:1,id:"inspection-lifecycle",created_at:"2026-09-03T12:00:00.000Z",updated_at:"2026-09-03T12:10:00.000Z",
+    version:1,id:"inspection-lifecycle",created_at:"2026-09-03T12:00:00.000Z",updated_at:"2026-09-03T12:10:00.000Z",started_at:"2026-09-03T12:01:00.000Z",completed_at:"2026-09-03T12:08:00.000Z",
     customer:{id:"customer-1"},property:{id:"property-1",customer_id:"customer-1"},systems:[],status:"completed",
     report:{status:"completed",signature_status:"signed",signed_at:"2026-09-03T12:09:00.000Z",revision:1}
   });
@@ -406,11 +406,28 @@ test("inspection persistence protects signed and delivered report history",()=>{
   assert.throws(()=>validateInspectionCollectionUpdate([base],[{...base,customer:{...base.customer,notes:"Changed after signature"}}]),/new report revision/);
   assert.doesNotThrow(()=>validateInspectionCollectionUpdate([base],[revised]));
 
-  const incomplete=normalizeInspection({...base,id:"incomplete-lifecycle",status:"delivered",report:{status:"delivered",signature_status:"signed",revision:1}});
+  const incomplete=normalizeInspection({...base,id:"incomplete-lifecycle",completed_at:null,status:"delivered",report:{status:"delivered",signature_status:"signed",revision:1}});
   assert.ok(incomplete);
   assert.equal(incomplete.report.signature_status,"pending");
+  assert.equal(incomplete.report.signed_at,null);
   assert.equal(incomplete.report.status,"completed");
-  assert.equal(incomplete.status,"completed");
+  assert.equal(incomplete.report.delivered_at,null);
+  assert.equal(incomplete.status,"ready_for_review");
+});
+
+test("inspection lifecycle rejects impossible timestamp ordering",()=>{
+  const inspection=normalizeInspection({
+    version:1,id:"inspection-timestamp-order",created_at:"2026-09-03T12:00:00.000Z",
+    started_at:"2026-09-03T12:10:00.000Z",completed_at:"2026-09-03T12:05:00.000Z",status:"delivered",
+    customer:{id:"customer-1"},property:{id:"property-1",customer_id:"customer-1"},systems:[],
+    report:{status:"delivered",signature_status:"not_requested",signed_at:"2026-09-03T12:06:00.000Z",delivered_at:"2026-09-03T12:07:00.000Z",revision:1}
+  });
+  assert.ok(inspection);
+  assert.equal(inspection.completed_at,null);
+  assert.equal(inspection.status,"ready_for_review");
+  assert.equal(inspection.report.status,"completed");
+  assert.equal(inspection.report.signed_at,null);
+  assert.equal(inspection.report.delivered_at,null);
 });
 
 test("inspection revision RLS verifies ownership of the parent inspection",()=>{
