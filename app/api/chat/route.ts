@@ -79,6 +79,10 @@ export async function POST(req:Request){
   const context=parsed.data.context?`\n\nCURRENT OPTIONAL FIELD CONTEXT:\n${JSON.stringify(parsed.data.context,null,2)}`:"";
   const attachments=parsed.data.attachments||[];
   const sourceManifest=parsed.data.source_manifest||[];
+  const sourceModel=parsed.data.pro_source?.model?.trim();
+  const verifiedModel=parsed.data.manual_verification?.verified_model?.trim();
+  const normalizeModel=(value:string)=>value.toLowerCase().replace(/[^a-z0-9]/g,"");
+  const modelMismatch=Boolean(sourceModel&&verifiedModel&&normalizeModel(sourceModel)!==normalizeModel(verifiedModel));
 
   const input:ResponseInputItem[]=[];
   parsed.data.messages.forEach((m,index)=>{
@@ -112,12 +116,19 @@ SOURCE MANIFEST RULES:
 - Do not claim to have reviewed file content unless that content is included in the current attachments.
 - Surface mismatched hashes, missing bytes, truncated text, and unresolved source applicability when relevant.
 `:"";
+  const modelApplicabilityInstruction=modelMismatch?`
+CRITICAL MANUAL APPLICABILITY CONFLICT:
+- Source Desk appliance model: ${JSON.stringify(sourceModel)}
+- Manual Verification Record model: ${JSON.stringify(verifiedModel)}
+- Do not apply product-specific requirements from this manual until the supplied source establishes that it covers the appliance model. Lead with this conflict when it affects the answer and identify the exact identity evidence needed to resolve it.
+`:"";
 
   try{
     const response=await client.responses.create({
       model:process.env.OPENAI_MODEL||"gpt-5-mini",
       instructions:promptForMode(parsed.data.mode)+context+attachmentInstruction+sourceManifestInstruction+
         (parsed.data.mode==="pro"?proSourceInstruction(parsed.data.pro_source):"")+
+        (parsed.data.mode==="pro"?modelApplicabilityInstruction:"")+
         (parsed.data.mode==="pro"&&parsed.data.manual_verification?`
 MANUAL VERIFICATION RECORD:
 ${JSON.stringify(parsed.data.manual_verification,null,2)}
