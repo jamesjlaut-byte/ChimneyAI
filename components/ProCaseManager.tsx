@@ -143,8 +143,8 @@ export default function ProCaseManager({
     <summary><span>Saved Pro Cases</span><small>{cases.length} saved locally</small></summary>
     <div className="caseManagerBody">
       <div className="saveCaseGrid">
-        <input value={title} onChange={e=>setTitle(e.target.value)} placeholder="Case title — e.g. Majestic SB100 manual research"/>
-        <textarea value={notes} onChange={e=>setNotes(e.target.value)} rows={2} placeholder="Private case notes / field context"/>
+        <input aria-label="Case title" value={title} onChange={e=>setTitle(e.target.value)} placeholder="Case title — e.g. Majestic SB100 manual research"/>
+        <textarea aria-label="Private case notes and field context" value={notes} onChange={e=>setNotes(e.target.value)} rows={2} placeholder="Private case notes / field context"/>
         <div className="saveCaseActions"><button type="button" onClick={saveCurrent}>{editingId?"Update loaded case":"Save new case"}</button>{editingId&&<button type="button" className="cancelCaseEdit" onClick={()=>{setEditingId(null);setTitle("");setNotes("");setSyncMessage("Update canceled.")}}>Cancel</button>}</div>
       </div>
       {cases.length===0?<p className="emptyCases">No saved cases yet.</p>:
@@ -162,7 +162,7 @@ export default function ProCaseManager({
           <button type="button" className="deleteCase" onClick={()=>remove(c)}>Delete</button>
         </div>
       </div>)}</div>}
-      {syncMessage&&<div className="caseSyncMessage">{syncMessage}</div>}
+      {syncMessage&&<div className="caseSyncMessage" role="status" aria-live="polite">{syncMessage}</div>}
       <div className="caseFooter">
         <p className="casePrivacy">Browser-local case records preserve conversation text and source fingerprints. Source bytes can be persisted separately in the browser Source File Vault and re-verified against SHA-256.</p>
         <button type="button" onClick={onClearChat}>Clear current chat</button>

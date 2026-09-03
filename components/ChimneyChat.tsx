@@ -124,13 +124,13 @@ export default function ChimneyChat({mode}:{mode:Mode}){
       {busy&&<div className="message assistant"><div className="messageRole">ChimneyAI</div>{mode==="pro"&&<div className="professionalReviewFlag">Building evidence-aware analysis</div>}<div className="typing">Analyzing…</div></div>}</div>
     <div className="composer">
       {attachments.length>0&&<div className="attachmentTray">{attachments.map((a,i)=><div className="attachmentChip" key={`${a.name}-${i}`}><span>{a.kind==="image"?"PHOTO":"DOC"} · {a.name}{a.page_count?` · ${a.page_count} pages`:""}{a.text_truncated?" · partial text":""} · {a.sha256.slice(0,10)}…</span><button type="button" aria-label={`Remove ${a.name}`} onClick={()=>setAttachments(attachments.filter((_,x)=>x!==i))}>×</button></div>)}</div>}
-      {attachmentStatus&&<div className="attachmentStatus">{attachmentStatus}</div>}
+      {attachmentStatus&&<div className="attachmentStatus" role="status" aria-live="polite">{attachmentStatus}</div>}
       {mode==="pro"&&attachments.some(a=>a.kind==="image")&&<div className="quickActions">
         <button type="button" onClick={()=>{setProSource({...proSource,task:"label_scan",source_type:"listing_label",source_status:"uploaded"});setText("Read this label carefully. Extract only legible manufacturer, model, serial, listing/standard markings, fuel/appliance information, and other visible installation data. Identify uncertain characters and tell me exactly what source/manual is needed next.");}}>Treat photo as label scan</button>
         <button type="button" onClick={()=>setText("Second-look these field photos. Separate visible observations, possible concerns, what cannot be determined, and what I should verify/document onsite.")}>Technical photo second-look</button>
         <button type="button" onClick={()=>setText("Create a concise technical research summary from the current case. Separate: appliance identity, controlling source, verified manual identity/revision, known field facts, source requirements, unresolved conflicts/missing information, and suggested objective report language. Do not add facts that are not in the case.")}>Build research summary</button>
       </div>}
-      <textarea value={text} onChange={e=>setText(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}}
+      <textarea aria-label={mode==="pro"?"Technical question or field documentation":"Chimney or fireplace question"} value={text} onChange={e=>setText(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}}
         placeholder={mode==="pro"?"Ask a technical question, or attach field documentation…":"Ask a question, or attach your report/photo…"} rows={3}/>
       <div className="composerActions"><button className="attachBtn" type="button" onClick={()=>inputRef.current?.click()}>＋ Attach</button>
         <input ref={inputRef} hidden type="file" multiple accept="image/*,.pdf,.txt,.md,.csv" onChange={e=>addFiles(e.target.files)}/>

@@ -141,14 +141,14 @@ export default function SourceManifest({
             {r.integrity_status&&<small>Integrity: <b>{r.integrity_status}</b></small>}
           </div>
           <div className="manifestControls">
-            <select value={r.role} onChange={e=>update(r.sha256,{role:e.target.value as SourceProvenanceRecord["role"]})}>
+            <select aria-label={`Source role for ${r.file_name}`} value={r.role} onChange={e=>update(r.sha256,{role:e.target.value as SourceProvenanceRecord["role"]})}>
               <option value="manual">Manufacturer manual</option>
               <option value="listing_label">Listing / rating label</option>
               <option value="inspection_report">Inspection report</option>
               <option value="field_photo">Field photo</option>
               <option value="other">Other source</option>
             </select>
-            <input value={r.note} onChange={e=>update(r.sha256,{note:e.target.value})} placeholder="Why this source matters"/>
+            <input aria-label={`Source note for ${r.file_name}`} value={r.note} onChange={e=>update(r.sha256,{note:e.target.value})} placeholder="Why this source matters"/>
             <div className="vaultActions">
               {attached&&r.storage_status!=="persisted_browser"&&<button type="button" onClick={()=>persist(attached)}>Persist</button>}
               {r.storage_status==="persisted_browser"&&<>
@@ -161,7 +161,7 @@ export default function SourceManifest({
           </div>
         </div>
       })}</div>}
-      {status&&<div className="vaultStatus">{status}</div>}
+      {status&&<div className="vaultStatus" role="status" aria-live="polite">{status}</div>}
       <p className="manifestFoot">Pro uploads are recorded here automatically with a SHA-256 fingerprint. “Persist bytes” separately stores the exact file in IndexedDB on this browser/device. Clearing browser site data can remove those files, so this is not cloud archival storage.</p>
     </div>
   </details>;
