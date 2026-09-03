@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import {test} from "node:test";
 
 import {defaultSourceRole} from "../lib/default-source-role.ts";
+import {MAX_CHAT_REQUEST_BYTES,parseChatRequest} from "../lib/chat-request.ts";
 import {MANUFACTURERS,matchManufacturer} from "../lib/manual-registry.ts";
 import {modelsConflict,normalizeModelIdentifier} from "../lib/model-identity.ts";
 import {compareCaseVersions,normalizeManual,normalizeProSource,upsertLocalCase} from "../lib/pro-cases.ts";
@@ -16,6 +17,24 @@ test("manufacturer registry resolves canonical names and field aliases",()=>{
   assert.equal(matchManufacturer("Metalbestos")?.id,"selkirk");
   assert.equal(matchManufacturer("unknown maker"),null);
   assert.ok(MANUFACTURERS.every(entry=>entry.official_manual_lookup.startsWith("https://")));
+});
+
+test("chat request validation enforces modes, limits, hashes, and upload types",()=>{
+  const base={mode:"pro",messages:[{role:"user",content:"Review this source."}]};
+  assert.equal(parseChatRequest(base).success,true);
+  assert.equal(parseChatRequest({...base,mode:"admin"}).success,false);
+  assert.equal(parseChatRequest({...base,messages:[]}).success,false);
+  assert.equal(parseChatRequest({...base,messages:[{role:"user",content:"x".repeat(20_001)}]}).success,false);
+  assert.equal(parseChatRequest({...base,attachments:Array.from({length:7},()=>({
+    kind:"document_text",name:"note.txt",mime_type:"text/plain",text:"evidence"
+  }))}).success,false);
+  assert.equal(parseChatRequest({...base,attachments:[{
+    kind:"image",name:"photo.svg",mime_type:"image/svg+xml",data_url:"data:image/svg+xml;base64,PHN2Zz4="
+  }]}).success,false);
+  assert.equal(parseChatRequest({...base,source_manifest:[{
+    file_name:"manual.pdf",mime_type:"application/pdf",byte_size:10,sha256:"not-a-hash",role:"manual",note:""
+  }]}).success,false);
+  assert.equal(MAX_CHAT_REQUEST_BYTES,4_000_000);
 });
 
 test("source roles remain conservative unless task context is explicit",()=>{
