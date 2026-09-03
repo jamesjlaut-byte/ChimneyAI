@@ -192,20 +192,31 @@ export function normalizeInspection(value:unknown):Inspection|null{
   };
 }
 
+export function parseInspections(serialized:string):Inspection[]{
+  try{
+    const parsed=JSON.parse(serialized);
+    return Array.isArray(parsed)?parsed.map(normalizeInspection).filter((item):item is Inspection=>item!==null)
+      .sort((a,b)=>Date.parse(b.updated_at)-Date.parse(a.updated_at)).slice(0,MAX_LOCAL_INSPECTIONS):[];
+  }catch{return []}
+}
+
+export function serializeInspections(inspections:Inspection[]):string{
+  const safe=inspections.map(normalizeInspection).filter((item):item is Inspection=>item!==null)
+    .sort((a,b)=>Date.parse(b.updated_at)-Date.parse(a.updated_at)).slice(0,MAX_LOCAL_INSPECTIONS);
+  return JSON.stringify(safe);
+}
+
 export function loadInspections():Inspection[]{
   if(typeof window==="undefined")return [];
-  try{
-    const parsed=JSON.parse(localStorage.getItem(STORAGE_KEY)||"[]");
-    return Array.isArray(parsed)?parsed.map(normalizeInspection).filter((item):item is Inspection=>item!==null).slice(0,MAX_LOCAL_INSPECTIONS):[];
-  }catch{return []}
+  try{return parseInspections(localStorage.getItem(STORAGE_KEY)||"[]")}
+  catch{return []}
 }
 
 export function saveInspections(inspections:Inspection[]){
   if(typeof window==="undefined")return;
-  const safe=inspections.map(normalizeInspection).filter((item):item is Inspection=>item!==null)
-    .sort((a,b)=>Date.parse(b.updated_at)-Date.parse(a.updated_at)).slice(0,MAX_LOCAL_INSPECTIONS);
+  const serialized=serializeInspections(inspections),safe=parseInspections(serialized);
   validateInspectionCollectionUpdate(loadInspections(),safe);
-  try{localStorage.setItem(STORAGE_KEY,JSON.stringify(safe))}
+  try{localStorage.setItem(STORAGE_KEY,serialized)}
   catch{throw new Error("Browser storage is full or unavailable. Inspection data was not removed; keep this page open and export important work.")}
 }
 

@@ -18,7 +18,7 @@ import {checkChatRateLimit} from "../lib/request-rate-limit.ts";
 import {provenanceFromAttachment} from "../lib/source-provenance.ts";
 import {isMeaningfulProDraft,parseProDraft,prepareProDraft} from "../lib/pro-draft.ts";
 import {sha256Blob} from "../lib/source-file-store.ts";
-import {canTransitionInspectionStatus,normalizeInspection,upsertInspection,validateInspectionCollectionUpdate} from "../lib/inspections.ts";
+import {canTransitionInspectionStatus,normalizeInspection,parseInspections,serializeInspections,upsertInspection,validateInspectionCollectionUpdate} from "../lib/inspections.ts";
 
 test("manufacturer registry resolves canonical names and field aliases",()=>{
   assert.equal(matchManufacturer("Heat-N-Glo")?.id,"heat-glo");
@@ -298,6 +298,14 @@ test("inspection foundation preserves valid links and rejects cross-system evide
   assert.equal(inspection.photos[0].ai_category_suggestion,null);
   assert.equal(inspection.photos[0].ai_confidence,null);
   assert.equal(upsertInspection([],inspection)[0].id,"inspection-1");
+  const roundTrip=parseInspections(serializeInspections([inspection]));
+  assert.deepEqual(roundTrip,[inspection]);
+});
+
+test("inspection browser serialization recovers conservatively",()=>{
+  assert.deepEqual(parseInspections("not-json"),[]);
+  assert.deepEqual(parseInspections(JSON.stringify({id:"not-an-array"})),[]);
+  assert.deepEqual(parseInspections(JSON.stringify([{version:1,id:"missing-relationships"}])),[]);
 });
 
 test("inspection types normalize legacy labels and reject unsupported claims",()=>{
