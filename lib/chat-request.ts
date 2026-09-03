@@ -1,4 +1,5 @@
 import {z} from "zod";
+import {sanitizeManualHttpsUrl} from "./manual-url.ts";
 
 export const MAX_CHAT_REQUEST_BYTES=4_000_000;
 
@@ -55,7 +56,7 @@ const ChatRequestBody=z.object({
     manual_part_number:z.string().max(200).optional(),
     manual_revision:z.string().max(200).optional(),
     effective_date:z.string().max(100).optional(),
-    official_url:z.string().max(2000).optional(),
+    official_url:z.string().max(2000).transform(sanitizeManualHttpsUrl).optional(),
     verified_model:z.string().max(300).optional(),
     relevant_pages:z.string().max(300).optional(),
     verification_note:z.string().max(3000).optional()

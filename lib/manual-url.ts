@@ -7,6 +7,10 @@ export function parseManualHttpsUrl(value:string){
   }catch{return null;}
 }
 
+export function sanitizeManualHttpsUrl(value:string){
+  return parseManualHttpsUrl(value)?.href||"";
+}
+
 export function normalizeManualHost(hostname:string){
   return hostname.toLowerCase().replace(/\.$/,"").replace(/^www\./,"");
 }
