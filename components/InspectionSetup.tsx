@@ -1,5 +1,6 @@
 "use client";
 import {useEffect,useState,type FormEvent} from "react";
+import InspectionRunner from "@/components/InspectionRunner";
 import {INSPECTION_SCHEMA_VERSION,loadInspections,normalizeInspection,saveInspections,upsertInspection,type Inspection,type InspectionType,type SystemType} from "@/lib/inspections";
 
 const SYSTEM_OPTIONS:ReadonlyArray<{value:SystemType;label:string}>=[
@@ -70,5 +71,6 @@ export default function InspectionSetup(){
       <div className="inspectionSetupActions"><span role="status" aria-live="polite">{status}</span><button type="submit">{active?"Save setup":"Start inspection"}</button></div>
       <p>Browser-first draft. AI assists; the technician controls observations, findings, and final conclusions.</p>
     </form>
+    {active?<InspectionRunner inspection={active} onChange={setActive}/>:null}
   </details>;
 }

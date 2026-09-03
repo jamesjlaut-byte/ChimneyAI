@@ -19,6 +19,21 @@ import {provenanceFromAttachment} from "../lib/source-provenance.ts";
 import {isMeaningfulProDraft,parseProDraft,prepareProDraft} from "../lib/pro-draft.ts";
 import {sha256Blob} from "../lib/source-file-store.ts";
 import {canTransitionInspectionStatus,normalizeInspection,parseInspections,serializeInspections,upsertInspection,validateInspectionCollectionUpdate} from "../lib/inspections.ts";
+import {getInspectionChecklist} from "../lib/inspection-checklists.ts";
+
+test("guided inspection checklists adapt to system and inspection level",()=>{
+  const masonry=getInspectionChecklist("masonry_fireplace","level_1");
+  const woodStove=getInspectionChecklist("wood_stove","level_1");
+  const levelTwo=getInspectionChecklist("wood_stove","level_2");
+  assert.ok(masonry.some(item=>item.id==="smoke_chamber"));
+  assert.ok(masonry.some(item=>item.id==="crown"));
+  assert.ok(woodStove.some(item=>item.id==="connector"));
+  assert.ok(woodStove.some(item=>item.id==="appliance_identification"));
+  assert.equal(woodStove.some(item=>item.id==="smoke_chamber"),false);
+  assert.ok(levelTwo.some(item=>item.id==="attic_access"));
+  assert.ok(levelTwo.some(item=>item.id==="video_scan"));
+  assert.ok(levelTwo.length>woodStove.length);
+});
 
 test("manufacturer registry resolves canonical names and field aliases",()=>{
   assert.equal(matchManufacturer("Heat-N-Glo")?.id,"heat-glo");

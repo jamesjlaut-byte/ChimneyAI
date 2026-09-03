@@ -175,6 +175,8 @@ Customer → property → system → inspection type → adaptive component runn
 
 First increment: a compact Pro-workspace setup form creates and recovers a real browser-first inspection draft with technician, customer, property, chimney system, and inspection-scope context. It intentionally stops before component questions rather than presenting a placeholder inspection as complete.
 
+Second increment: the active inspection now opens a one-component-at-a-time field runner. Its checklist changes with system type and inspection level, supports the full technician-controlled finding status set (including monitor and unable to inspect), and saves raw field notes locally before advancing. Photo capture, AI wording, and completion review remain later explicit phases rather than simulated capabilities.
+
 ### Phase 3 — Photo and findings workflow
 
 Photo records, categories, captions, component linkage, raw notes, AI suggestion review, confirm/reject/edit/request-view actions, and finding/recommendation traceability.
