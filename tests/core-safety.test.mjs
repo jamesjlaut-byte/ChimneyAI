@@ -134,12 +134,15 @@ test("cloud and browser case records share strict message and source normalizati
   ],created),[{role:"user",content:"Field observation",created_at:created}]);
 
   const sources=normalizeSourceFiles([
-    {sha256:"a".repeat(64),role:"invented",byte_size:Infinity,integrity_status:"trusted"},
+    {sha256:"A".repeat(64),role:"invented",byte_size:Infinity,page_count:Infinity,integrity_status:"trusted"},
+    {sha256:"a".repeat(64),role:"manual",byte_size:100},
     {sha256:"bad",role:"manual",byte_size:100}
   ],created);
   assert.equal(sources.length,1);
+  assert.equal(sources[0].sha256,"a".repeat(64));
   assert.equal(sources[0].role,"other");
   assert.equal(sources[0].byte_size,0);
+  assert.equal(sources[0].page_count,undefined);
   assert.equal(sources[0].integrity_status,"unchecked");
   assert.equal(sources[0].storage_status,"missing");
 });

@@ -73,22 +73,29 @@ export function normalizeSavedMessages(value:unknown,fallbackCreatedAt:string):S
 }
 
 export function normalizeSourceFiles(value:unknown,fallbackCreatedAt:string):SourceProvenanceRecord[]{
-  return Array.isArray(value)?value.flatMap(item=>{
-    const s=record(item),sha256=text(s.sha256);
-    if(!/^[a-f0-9]{64}$/i.test(sha256))return [];
+  if(!Array.isArray(value))return [];
+  const seen=new Set<string>();
+  const normalized:SourceProvenanceRecord[]=[];
+  for(const item of value){
+    const s=record(item),sha256=text(s.sha256).toLowerCase();
+    if(!/^[a-f0-9]{64}$/.test(sha256)||seen.has(sha256))continue;
+    seen.add(sha256);
     const role=SOURCE_ROLES.has(s.role as SourceProvenanceRecord["role"])?s.role as SourceProvenanceRecord["role"]:"other";
-    return [{
+    const byteSize=typeof s.byte_size==="number"&&Number.isSafeInteger(s.byte_size)&&s.byte_size>=0?s.byte_size:0;
+    const pageCount=typeof s.page_count==="number"&&Number.isSafeInteger(s.page_count)&&s.page_count>0&&s.page_count<=100_000?s.page_count:undefined;
+    normalized.push({
       attachment_id:text(s.attachment_id)||`legacy:${sha256}`,
-      file_name:text(s.file_name)||"Saved source file",mime_type:text(s.mime_type)||"application/octet-stream",
-      byte_size:typeof s.byte_size==="number"&&Number.isFinite(s.byte_size)?s.byte_size:0,
+      file_name:(text(s.file_name)||"Saved source file").slice(0,240),mime_type:(text(s.mime_type)||"application/octet-stream").slice(0,120),
+      byte_size:byteSize,
       sha256,prepared_at:text(s.prepared_at)||fallbackCreatedAt,
-      page_count:typeof s.page_count==="number"&&s.page_count>0?s.page_count:undefined,
-      text_truncated:Boolean(s.text_truncated),role,note:text(s.note),
+      page_count:pageCount,
+      text_truncated:Boolean(s.text_truncated),role,note:text(s.note).slice(0,2000),
       storage_status:s.storage_status==="session_only"||s.storage_status==="persisted_browser"||s.storage_status==="missing"?s.storage_status:"missing",
       persisted_at:text(s.persisted_at)||undefined,
       integrity_status:s.integrity_status==="unchecked"||s.integrity_status==="verified"||s.integrity_status==="mismatch"||s.integrity_status==="missing"?s.integrity_status:"unchecked"
-    }];
-  }):[];
+    });
+  }
+  return normalized;
 }
 
 function normalizeCase(value:unknown):ProCase|null{
