@@ -28,6 +28,12 @@ export default function InspectionRunner({inspection,onChange,onDirtyChange}:{in
   const hasUnsavedChanges=findingStatus!==(existing?.status||"")||note!==(existing?.raw_note||"");
 
   useEffect(()=>{onDirtyChange?.(hasUnsavedChanges)},[hasUnsavedChanges,onDirtyChange]);
+  useEffect(()=>{
+    if(!hasUnsavedChanges)return;
+    const warnBeforeExit=(event:BeforeUnloadEvent)=>{event.preventDefault();event.returnValue=""};
+    window.addEventListener("beforeunload",warnBeforeExit);
+    return()=>window.removeEventListener("beforeunload",warnBeforeExit);
+  },[hasUnsavedChanges]);
   useEffect(()=>{if(focusComponent.current){componentHeading.current?.focus();focusComponent.current=false}},[step]);
 
   useEffect(()=>{
@@ -83,7 +89,7 @@ export default function InspectionRunner({inspection,onChange,onDirtyChange}:{in
       <h3 ref={componentHeading} tabIndex={-1}>{current.label}</h3>
       <fieldset><legend>Technician-selected status</legend><div className="inspectionStatusGrid">{STATUS_OPTIONS.map(option=><label key={option.value} className={findingStatus===option.value?"selected":""}><input required type="radio" name={`status-${current.id}`} value={option.value} checked={findingStatus===option.value} onChange={()=>setFindingStatus(option.value)} /><span>{option.label}</span></label>)}</div></fieldset>
       <label className="inspectionNote">Field note<textarea rows={3} value={note} onChange={event=>setNote(event.target.value)} placeholder="Record only what you observed. Voice entry is available from your phone keyboard." /></label>
-      <div className="inspectionRunnerActions"><button type="button" disabled={step===0} onClick={()=>goToStep(step-1)}>Previous</button><span role="status" aria-live="polite">{message}</span><button type="submit" disabled={!findingStatus}>{step===checklist.length-1?"Save component":"Save & next"}</button></div>
+      <div className="inspectionRunnerActions"><button type="button" disabled={step===0} onClick={()=>goToStep(step-1)}>Previous</button><span role="status" aria-live="polite">{hasUnsavedChanges?"Unsaved changes — save this component before leaving. ":""}{message}</span><button type="submit" disabled={!findingStatus}>{step===checklist.length-1?"Save component":"Save & next"}</button></div>
     </form>
     <InspectionPhotoCapture inspection={inspection} finding={existing} component={current.id} label={current.label} onChange={onChange}/>
     <div className={`inspectionPhotoCoverage ${photoGaps.length||missing.length?"needsPhotos":"covered"}`}><b>{photoGaps.length?`${photoGaps.length} recommended photo${photoGaps.length===1?"":"s"} missing`:missing.length?"Photo review in progress":"No recommended photo gaps in documented components"}</b><span>{photoGaps.length?photoGaps.slice(0,3).map(item=>item.label).join(" · ")+(photoGaps.length>3?` · +${photoGaps.length-3} more`:""):missing.length?"Save the remaining component statuses to finish checking photo recommendations.":"Photo-optional, inaccessible, and not-applicable components are excluded."} Recommended photos are a quality-control prompt, not proof that an area was accessible or a condition exists.</span></div>

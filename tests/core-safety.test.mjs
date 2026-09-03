@@ -89,6 +89,15 @@ test("every existing guided inspection save checks its loaded version",()=>{
   assert.ok(setup.includes("upsertInspection(loadInspections(),candidate,active||undefined)"));
 });
 
+test("unsaved component edits register and clean up a browser-exit warning",()=>{
+  const runner=readFileSync(new URL("../components/InspectionRunner.tsx",import.meta.url),"utf8");
+  assert.ok(runner.includes("if(!hasUnsavedChanges)return;"));
+  assert.ok(runner.includes('window.addEventListener("beforeunload",warnBeforeExit)'));
+  assert.ok(runner.includes('window.removeEventListener("beforeunload",warnBeforeExit)'));
+  assert.ok(runner.includes('event.preventDefault();event.returnValue=""'));
+  assert.ok(runner.includes("Unsaved changes — save this component before leaving."));
+});
+
 test("manufacturer registry resolves canonical names and field aliases",()=>{
   assert.equal(matchManufacturer("Heat-N-Glo")?.id,"heat-glo");
   assert.equal(matchManufacturer("M&G DuraVent")?.id,"duravent");
