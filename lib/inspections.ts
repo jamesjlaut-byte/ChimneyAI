@@ -76,6 +76,7 @@ export function normalizeInspection(value:unknown):Inspection|null{
   const customerRecord=record(root.customer),customerId=id(customerRecord.id);
   const propertyRecord=record(root.property),propertyId=id(propertyRecord.id);
   if(!customerId||!propertyId||id(propertyRecord.customer_id)!==customerId)return null;
+  const technicianRecord=record(root.technician),assignedTechnicianId=id(technicianRecord.id);
 
   const systems=(Array.isArray(root.systems)?root.systems:[]).flatMap(item=>{
     const system=record(item),systemId=id(system.id);
@@ -99,7 +100,7 @@ export function normalizeInspection(value:unknown):Inspection|null{
     const measurementType=text(measurement.measurement_type,200),unit=text(measurement.unit,50);
     const method=enumValue(measurement.method,MEASUREMENT_METHODS,"manual");
     const verifiedBy=nullableText(measurement.verified_by,100),verifiedAt=nullableTimestamp(measurement.verified_at);
-    const technicianVerified=measurement.technician_verified===true&&value!==null&&Boolean(measurementType.trim()&&unit.trim()&&verifiedBy&&verifiedAt);
+    const technicianVerified=measurement.technician_verified===true&&value!==null&&Boolean(measurementType.trim()&&unit.trim()&&verifiedAt)&&verifiedBy===assignedTechnicianId&&Boolean(assignedTechnicianId);
     let confidence=enumValue(measurement.confidence,MEASUREMENT_CONFIDENCE,"technician_entered");
     if(technicianVerified)confidence="verified";
     else if(confidence==="verified")confidence=method==="camera_assisted"?"ai_estimated":"technician_entered";
@@ -118,7 +119,7 @@ export function normalizeInspection(value:unknown):Inspection|null{
     let reviewState=enumValue(finding.review_state,REVIEW_STATES,"not_requested");
     if(!aiSuggestion)reviewState="not_requested";
     else if(reviewState==="not_requested")reviewState="ai_suggested";
-    else if((reviewState==="technician_confirmed"||reviewState==="technician_rejected")&&(!reviewedBy||!reviewedAt))reviewState="ai_suggested";
+    else if((reviewState==="technician_confirmed"||reviewState==="technician_rejected")&&(!reviewedAt||reviewedBy!==assignedTechnicianId||!assignedTechnicianId))reviewState="ai_suggested";
     if(reviewState==="technician_confirmed"&&!technicianObservation)reviewState="ai_suggested";
     return [{id:findingId,system_id:systemId,component:text(finding.component,200),raw_note:text(finding.raw_note,5000),
       technician_observation:technicianObservation,ai_suggestion:aiSuggestion,
@@ -139,7 +140,7 @@ export function normalizeInspection(value:unknown):Inspection|null{
     let reviewState=enumValue(photo.review_state,REVIEW_STATES,"not_requested");
     if(!suggested)reviewState="not_requested";
     else if(reviewState==="not_requested")reviewState="ai_suggested";
-    else if((reviewState==="technician_confirmed"||reviewState==="technician_rejected")&&(!reviewedBy||!reviewedAt))reviewState="ai_suggested";
+    else if((reviewState==="technician_confirmed"||reviewState==="technician_rejected")&&(!reviewedAt||reviewedBy!==assignedTechnicianId||!assignedTechnicianId))reviewState="ai_suggested";
     return [{id:photoId,system_id:systemId,source_sha256:sourceSha,category:enumValue(photo.category,PHOTO_CATEGORIES,"other"),
       caption:text(photo.caption,2000),finding_ids:stringList(photo.finding_ids,100,100).filter(value=>findingIds.has(value)),
       ai_category_suggestion:suggested,ai_confidence:suggested&&AI_CONFIDENCE_LEVELS.includes(photo.ai_confidence as AiConfidence)?photo.ai_confidence as AiConfidence:null,
@@ -158,7 +159,7 @@ export function normalizeInspection(value:unknown):Inspection|null{
     photo_id:measurement.photo_id&&photoSystemById.get(measurement.photo_id)===measurement.system_id?measurement.photo_id:null
   }));
 
-  const technicianRecord=record(root.technician),reportRecord=record(root.report);
+  const reportRecord=record(root.report);
   const signedAt=nullableTimestamp(reportRecord.signed_at),deliveredAt=nullableTimestamp(reportRecord.delivered_at);
   let signatureStatus=enumValue(reportRecord.signature_status,SIGNATURE_STATUSES,"not_requested");
   if(signatureStatus==="signed"&&!signedAt)signatureStatus="pending";

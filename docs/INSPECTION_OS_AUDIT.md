@@ -204,6 +204,7 @@ Structured label OCR, chimney-specific photo classification/second look, voice c
 - Invalid IDs, enums, cross-inspection relationships, excessive collections, fabricated confirmation, and unsafe lifecycle transitions are rejected or conservatively normalized.
 - A finding cannot become technician-confirmed through an AI field alone.
 - Technician confirm/reject states retain reviewer identity and timestamp; incomplete review provenance is downgraded to an unconfirmed AI suggestion.
+- Finding review and measurement verification provenance must match the technician assigned to the inspection; mismatched identities are not accepted as technician decisions.
 - AI finding and photo-category confidence is restricted to low/moderate/high and remains absent when no suggestion exists.
 - Signed or delivered records cannot be replaced without advancing the report revision, and incomplete signature/delivery states are conservatively downgraded.
 - Whole-collection browser saves enforce the same revision rules and cannot silently delete a signed or delivered inspection.
