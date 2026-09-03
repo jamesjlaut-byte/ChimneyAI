@@ -51,7 +51,7 @@ export const MANUFACTURERS:ManufacturerRegistryEntry[]=[
     aliases:["Napoleon Fireplaces","Wolf Steel"],
     official_manual_lookup:"https://www.napoleon.com/en/us/fireplaces/support/professionals-support-center",
     lookup_type:"support_center",
-    notes:"Official Napoleon professional support center with product-manual resources.",
+    notes:"Official Napoleon professional support center with product-manual resources. The site may present a browser-verification step.",
     verified_on:"2026-09-02"
   },
   {
@@ -88,6 +88,33 @@ export const MANUFACTURERS:ManufacturerRegistryEntry[]=[
     official_manual_lookup:"https://forgenflame.com/pages/product-manuals",
     lookup_type:"manual_index",
     notes:"Official Forge & Flame manuals library. Open the Vermont Castings section for active and legacy product documents.",
+    verified_on:"2026-09-02"
+  },
+  {
+    id:"duravent",
+    name:"DuraVent",
+    aliases:["Duravent","Dura Vent","M&G DuraVent","M and G DuraVent"],
+    official_manual_lookup:"https://duravent.com/resources?keywords=installation+instructions",
+    lookup_type:"manual_index",
+    notes:"Official DuraVent resource library filtered for installation instructions. Confirm the exact product family, diameter, market, and document revision.",
+    verified_on:"2026-09-02"
+  },
+  {
+    id:"selkirk",
+    name:"Selkirk",
+    aliases:["Selkirk Corporation","Selkirk Chimney","Selkirk Metalbestos","Metalbestos"],
+    official_manual_lookup:"https://www.selkirkcorp.com/en-ca/resources-en-ca",
+    lookup_type:"manual_index",
+    notes:"Official Selkirk resource and download library. Select the correct country, product system, and current or legacy instructions.",
+    verified_on:"2026-09-02"
+  },
+  {
+    id:"icc-rsf",
+    name:"ICC / RSF",
+    aliases:["ICC","ICC Chimney","ICC-RSF","Industrial Chimney Company","RSF","RSF Fireplaces"],
+    official_manual_lookup:"https://icc-rsf.com/support-and-warranty/",
+    lookup_type:"support_center",
+    notes:"Official ICC/RSF support library for chimney systems, fireplaces, manuals, and legacy documents.",
     verified_on:"2026-09-02"
   }
 ];
