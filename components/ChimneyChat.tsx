@@ -28,8 +28,10 @@ export default function ChimneyChat({mode}:{mode:Mode}){
   const [manualVerification,setManualVerification]=useState<ManualVerification>(EMPTY_MANUAL);
   const [sourceFiles,setSourceFiles]=useState<SourceProvenanceRecord[]>([]);
   const inputRef=useRef<HTMLInputElement>(null),attachmentsRef=useRef(attachments);
+  const requestRef=useRef<{id:number;controller:AbortController}|null>(null),nextRequestId=useRef(0);
   const starters=useMemo(()=>mode==="pro"?starterPro:starterHomeowner,[mode]);
   useEffect(()=>{attachmentsRef.current=attachments},[attachments]);
+  useEffect(()=>()=>requestRef.current?.controller.abort(),[]);
   const evidenceChecks=useMemo(()=>{
     const identityFields=[proSource.manufacturer.trim(),proSource.model.trim()];
     const identityCount=identityFields.filter(Boolean).length;
@@ -108,9 +110,12 @@ export default function ChimneyChat({mode}:{mode:Mode}){
       return;
     }
     setMessages(next);setText("");setBusy(true);setAttachmentStatus("");
+    const controller=new AbortController(),requestId=++nextRequestId.current;
+    requestRef.current={id:requestId,controller};
     try{
-      const res=await fetch("/api/chat",{method:"POST",headers:{"content-type":"application/json"},body:requestBody});
+      const res=await fetch("/api/chat",{method:"POST",headers:{"content-type":"application/json"},body:requestBody,signal:controller.signal});
       const body:{ok?:boolean;error?:string;text?:string}=await res.json().catch(()=>({}));
+      if(requestRef.current?.id!==requestId)return;
       if(!res.ok||!body.ok){
         setText(current=>current||cleaned);
         const errorMessage=body.error==="openai_not_configured"
@@ -128,10 +133,11 @@ export default function ChimneyChat({mode}:{mode:Mode}){
       setMessages([...next,{role:"assistant",kind:"analysis",content:body.text||"I could not produce a response."}]);
       if(currentAttachments.length)setAttachmentStatus(`${currentAttachments.length} active source attachment${currentAttachments.length===1?" remains":"s remain"} available for follow-up questions.`);
     }catch{
+      if(controller.signal.aborted||requestRef.current?.id!==requestId)return;
       setText(current=>current||cleaned);
       setMessages([...markLastAttemptFailed(next),{role:"assistant",kind:"system_error",content:"ChimneyAI could not reach the service. Your attachments are still available—check your connection and try again."}]);
     }finally{
-      setBusy(false);
+      if(requestRef.current?.id===requestId){requestRef.current=null;setBusy(false)}
     }
   }
 
@@ -148,6 +154,7 @@ export default function ChimneyChat({mode}:{mode:Mode}){
   function startNewChat(){
     const warning=mode==="pro"?"Start a new chat? Save the current Pro case first if you need this conversation.":"Start a new chat? This conversation will be cleared.";
     if(!window.confirm(warning))return;
+    requestRef.current?.controller.abort();requestRef.current=null;setBusy(false);
     setMessages([]);setText("");setAttachments([]);setAttachmentStatus("");
   }
 
