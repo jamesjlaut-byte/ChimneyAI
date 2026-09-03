@@ -41,7 +41,8 @@ export type InspectionFinding={
 };
 export type InspectionMeasurement={
   id:string;system_id:string;component:string;measurement_type:string;value:number|null;unit:string;
-  method:MeasurementMethod;confidence:MeasurementConfidence;photo_id:string|null;technician_verified:boolean;
+  method:MeasurementMethod;confidence:MeasurementConfidence;photo_id:string|null;recorded_by:string|null;recorded_at:string|null;
+  technician_verified:boolean;verified_by:string|null;verified_at:string|null;
 };
 export type InspectionPhoto={
   id:string;system_id:string;source_sha256:string;category:PhotoCategory;caption:string;finding_ids:string[];
@@ -93,10 +94,17 @@ export function normalizeInspection(value:unknown):Inspection|null{
     if(!measurementId||!systemIds.has(systemId))return [];
     const rawValue=measurement.value;
     const value=typeof rawValue==="number"&&Number.isFinite(rawValue)?rawValue:null;
-    return [{id:measurementId,system_id:systemId,component:text(measurement.component,200),measurement_type:text(measurement.measurement_type,200),
-      value,unit:text(measurement.unit,50),method:enumValue(measurement.method,MEASUREMENT_METHODS,"manual"),
-      confidence:enumValue(measurement.confidence,MEASUREMENT_CONFIDENCE,"technician_entered"),photo_id:nullableText(measurement.photo_id,100),
-      technician_verified:measurement.technician_verified===true} satisfies InspectionMeasurement];
+    const measurementType=text(measurement.measurement_type,200),unit=text(measurement.unit,50);
+    const method=enumValue(measurement.method,MEASUREMENT_METHODS,"manual");
+    const verifiedBy=nullableText(measurement.verified_by,100),verifiedAt=nullableTimestamp(measurement.verified_at);
+    const technicianVerified=measurement.technician_verified===true&&value!==null&&Boolean(measurementType.trim()&&unit.trim()&&verifiedBy&&verifiedAt);
+    let confidence=enumValue(measurement.confidence,MEASUREMENT_CONFIDENCE,"technician_entered");
+    if(technicianVerified)confidence="verified";
+    else if(confidence==="verified")confidence=method==="camera_assisted"?"ai_estimated":"technician_entered";
+    return [{id:measurementId,system_id:systemId,component:text(measurement.component,200),measurement_type:measurementType,
+      value,unit,method,confidence,photo_id:nullableText(measurement.photo_id,100),
+      recorded_by:nullableText(measurement.recorded_by,100),recorded_at:nullableTimestamp(measurement.recorded_at),
+      technician_verified:technicianVerified,verified_by:technicianVerified?verifiedBy:null,verified_at:technicianVerified?verifiedAt:null} satisfies InspectionMeasurement];
   }).filter((measurement,index,all)=>all.findIndex(candidate=>candidate.id===measurement.id)===index).slice(0,MAX_INSPECTION_MEASUREMENTS);
   const measurementIds=new Set(measurements.map(measurement=>measurement.id));
 

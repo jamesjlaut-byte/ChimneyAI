@@ -288,11 +288,32 @@ test("inspection foundation preserves valid links and rejects cross-system evide
   assert.deepEqual(inspection.findings[0].photo_ids,["photo-1"]);
   assert.deepEqual(inspection.photos[1].finding_ids,[]);
   assert.equal(inspection.measurements[0].photo_id,null);
+  assert.equal(inspection.measurements[0].technician_verified,false);
+  assert.equal(inspection.measurements[0].confidence,"technician_entered");
   assert.equal(inspection.findings[0].review_state,"ai_suggested");
   assert.equal(inspection.findings[0].technician_observation,"");
   assert.equal(inspection.findings[0].reviewed_by,null);
   assert.equal(inspection.photos[0].ai_category_suggestion,null);
   assert.equal(upsertInspection([],inspection)[0].id,"inspection-1");
+});
+
+test("measurement verification requires complete technician provenance",()=>{
+  const inspection=normalizeInspection({
+    version:1,id:"inspection-measurements",created_at:"2026-09-03T12:00:00.000Z",
+    customer:{id:"customer-1"},property:{id:"property-1",customer_id:"customer-1"},
+    systems:[{id:"system-1",property_id:"property-1",system_type:"masonry_fireplace"}],
+    measurements:[
+      {id:"verified",system_id:"system-1",measurement_type:"hearth depth",value:18,unit:"in",method:"tape",confidence:"ai_estimated",technician_verified:true,verified_by:"tech-1",verified_at:"2026-09-03T12:05:00.000Z"},
+      {id:"estimate",system_id:"system-1",measurement_type:"opening width",value:42,unit:"in",method:"camera_assisted",confidence:"verified",technician_verified:true}
+    ]
+  });
+  assert.ok(inspection);
+  assert.equal(inspection.measurements[0].technician_verified,true);
+  assert.equal(inspection.measurements[0].confidence,"verified");
+  assert.equal(inspection.measurements[0].verified_by,"tech-1");
+  assert.equal(inspection.measurements[1].technician_verified,false);
+  assert.equal(inspection.measurements[1].confidence,"ai_estimated");
+  assert.equal(inspection.measurements[1].verified_by,null);
 });
 
 test("inspection foundation records explicit technician review provenance",()=>{
