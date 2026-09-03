@@ -183,6 +183,7 @@ export function saveInspections(inspections:Inspection[]){
   if(typeof window==="undefined")return;
   const safe=inspections.map(normalizeInspection).filter((item):item is Inspection=>item!==null)
     .sort((a,b)=>Date.parse(b.updated_at)-Date.parse(a.updated_at)).slice(0,MAX_LOCAL_INSPECTIONS);
+  validateInspectionCollectionUpdate(loadInspections(),safe);
   try{localStorage.setItem(STORAGE_KEY,JSON.stringify(safe))}
   catch{throw new Error("Browser storage is full or unavailable. Inspection data was not removed; keep this page open and export important work.")}
 }
@@ -190,15 +191,10 @@ export function saveInspections(inspections:Inspection[]){
 export function upsertInspection(inspections:Inspection[],incoming:Inspection){
   const normalized=normalizeInspection(incoming);
   if(!normalized)throw new Error("Inspection record is invalid and was not saved.");
-  const existing=inspections.find(item=>item.id===normalized.id);
-  if(existing&&!canTransitionInspectionStatus(existing.status,normalized.status)){
-    throw new Error(`Inspection status cannot move from ${existing.status} to ${normalized.status}.`);
-  }
-  if(existing&&(existing.report.signature_status==="signed"||existing.report.status==="delivered")&&normalized.report.revision<=existing.report.revision){
-    throw new Error("Signed or delivered inspection changes require a new report revision.");
-  }
-  return [normalized,...inspections.filter(item=>item.id!==normalized.id)]
+  const next=[normalized,...inspections.filter(item=>item.id!==normalized.id)]
     .sort((a,b)=>Date.parse(b.updated_at)-Date.parse(a.updated_at)).slice(0,MAX_LOCAL_INSPECTIONS);
+  validateInspectionCollectionUpdate(inspections,next);
+  return next;
 }
 
 const STATUS_TRANSITIONS:Record<InspectionStatus,readonly InspectionStatus[]>={
@@ -212,4 +208,26 @@ const STATUS_TRANSITIONS:Record<InspectionStatus,readonly InspectionStatus[]>={
 
 export function canTransitionInspectionStatus(from:InspectionStatus,to:InspectionStatus){
   return from===to||STATUS_TRANSITIONS[from].includes(to);
+}
+
+function isProtectedInspection(inspection:Inspection){
+  return inspection.report.signature_status==="signed"||inspection.report.status==="delivered";
+}
+
+export function validateInspectionCollectionUpdate(existing:Inspection[],next:Inspection[]){
+  const nextById=new Map(next.map(inspection=>[inspection.id,inspection]));
+  for(const current of existing){
+    const replacement=nextById.get(current.id);
+    if(!replacement){
+      if(isProtectedInspection(current))throw new Error("Signed or delivered inspections cannot be removed from browser history.");
+      continue;
+    }
+    if(JSON.stringify(current)===JSON.stringify(replacement))continue;
+    if(!canTransitionInspectionStatus(current.status,replacement.status)){
+      throw new Error(`Inspection status cannot move from ${current.status} to ${replacement.status}.`);
+    }
+    if(isProtectedInspection(current)&&replacement.report.revision<=current.report.revision){
+      throw new Error("Signed or delivered inspection changes require a new report revision.");
+    }
+  }
 }

@@ -205,6 +205,7 @@ Structured label OCR, chimney-specific photo classification/second look, voice c
 - A finding cannot become technician-confirmed through an AI field alone.
 - Technician confirm/reject states retain reviewer identity and timestamp; incomplete review provenance is downgraded to an unconfirmed AI suggestion.
 - Signed or delivered records cannot be replaced without advancing the report revision, and incomplete signature/delivery states are conservatively downgraded.
+- Whole-collection browser saves enforce the same revision rules and cannot silently delete a signed or delivered inspection.
 - A measurement records unit, method, confidence, and technician verification independently.
 - A photo/evidence relation references a valid source SHA-256 without copying bytes.
 - Existing cloud tables remain intact; new inspection tables are additive and owner-scoped.

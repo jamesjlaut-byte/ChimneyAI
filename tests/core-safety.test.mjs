@@ -18,7 +18,7 @@ import {checkChatRateLimit} from "../lib/request-rate-limit.ts";
 import {provenanceFromAttachment} from "../lib/source-provenance.ts";
 import {isMeaningfulProDraft,parseProDraft,prepareProDraft} from "../lib/pro-draft.ts";
 import {sha256Blob} from "../lib/source-file-store.ts";
-import {canTransitionInspectionStatus,normalizeInspection,upsertInspection} from "../lib/inspections.ts";
+import {canTransitionInspectionStatus,normalizeInspection,upsertInspection,validateInspectionCollectionUpdate} from "../lib/inspections.ts";
 
 test("manufacturer registry resolves canonical names and field aliases",()=>{
   assert.equal(matchManufacturer("Heat-N-Glo")?.id,"heat-glo");
@@ -329,6 +329,10 @@ test("inspection persistence protects signed and delivered report history",()=>{
   const revised={...base,updated_at:"2026-09-03T12:11:00.000Z",report:{...base.report,revision:2}};
   assert.equal(upsertInspection([base],revised)[0].report.revision,2);
   assert.throws(()=>upsertInspection([base],{...revised,status:"draft"}),/status cannot move/);
+  assert.doesNotThrow(()=>validateInspectionCollectionUpdate([base],[base]));
+  assert.throws(()=>validateInspectionCollectionUpdate([base],[]),/cannot be removed/);
+  assert.throws(()=>validateInspectionCollectionUpdate([base],[{...base,customer:{...base.customer,notes:"Changed after signature"}}]),/new report revision/);
+  assert.doesNotThrow(()=>validateInspectionCollectionUpdate([base],[revised]));
 
   const incomplete=normalizeInspection({...base,id:"incomplete-lifecycle",status:"delivered",report:{status:"delivered",signature_status:"signed",revision:1}});
   assert.ok(incomplete);
