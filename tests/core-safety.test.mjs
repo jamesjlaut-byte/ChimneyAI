@@ -10,6 +10,7 @@ import {MANUFACTURERS,matchManufacturer} from "../lib/manual-registry.ts";
 import {manualHostMatches,normalizeManualHost,parseManualHttpsUrl,sanitizeManualHttpsUrl} from "../lib/manual-url.ts";
 import {modelsConflict,normalizeModelIdentifier} from "../lib/model-identity.ts";
 import {cloudContentTimestamp,compareCaseVersions,normalizeManual,normalizeProSource,normalizeSavedMessages,normalizeSourceFiles,upsertLocalCase} from "../lib/pro-cases.ts";
+import {MAX_CASE_MESSAGES,MAX_CASE_SOURCES} from "../lib/case-limits.ts";
 import {HOMEOWNER_SYSTEM_PROMPT,PRO_SYSTEM_PROMPT,promptForMode} from "../lib/prompts.ts";
 import {proSourceInstruction} from "../lib/pro-source.ts";
 import {checkChatRateLimit} from "../lib/request-rate-limit.ts";
@@ -191,6 +192,22 @@ test("cloud and browser case records share strict message and source normalizati
   assert.equal(sources[0].page_count,undefined);
   assert.equal(sources[0].integrity_status,"unchecked");
   assert.equal(sources[0].storage_status,"missing");
+});
+
+test("case history and source capacities align with the chat request boundary",()=>{
+  const created="2026-09-03T12:00:00.000Z";
+  const messages=normalizeSavedMessages(Array.from({length:MAX_CASE_MESSAGES+5},(_,index)=>({role:"user",content:`note-${index}`,created_at:created})),created);
+  assert.equal(messages.length,MAX_CASE_MESSAGES);
+  assert.equal(messages[0].content,"note-5");
+  assert.equal(normalizeSavedMessages([{role:"user",content:"x".repeat(20_500)}],created)[0].content.length,20_000);
+
+  const sources=normalizeSourceFiles(Array.from({length:MAX_CASE_SOURCES+5},(_,index)=>({
+    sha256:index.toString(16).padStart(64,"0"),file_name:`source-${index}.pdf`,mime_type:"application/pdf",
+    byte_size:10,role:"manual",note:""
+  })),created);
+  assert.equal(sources.length,MAX_CASE_SOURCES);
+  assert.equal(parseChatRequest({mode:"pro",messages:[{role:"user",content:"Review sources"}],source_manifest:sources}).success,true);
+  assert.equal(parseChatRequest({mode:"pro",messages:[{role:"user",content:"Review sources"}],source_manifest:[...sources,sources[0]]}).success,false);
 });
 
 test("case version comparison exposes conflicts instead of guessing",()=>{

@@ -1,6 +1,7 @@
 import type {ProSourceState} from "@/components/ProSourceDesk";
 import type {ManualVerification} from "@/components/ManualVerificationCard";
 import type {SourceProvenanceRecord} from "@/lib/source-provenance";
+import {MAX_CASE_MESSAGES,MAX_CASE_SOURCES} from "./case-limits.ts";
 
 export type SavedMessage={role:"user"|"assistant";content:string;created_at:string};
 export type CloudCaseMeta={
@@ -68,8 +69,8 @@ export function normalizeManual(value:unknown):ManualVerification{
 export function normalizeSavedMessages(value:unknown,fallbackCreatedAt:string):SavedMessage[]{
   return Array.isArray(value)?value.flatMap(item=>{
     const m=record(item),role=m.role;
-    return (role==="user"||role==="assistant")&&text(m.content)?[{role,content:text(m.content),created_at:text(m.created_at)||fallbackCreatedAt} satisfies SavedMessage]:[];
-  }):[];
+    return (role==="user"||role==="assistant")&&text(m.content)?[{role,content:text(m.content).slice(0,20_000),created_at:text(m.created_at)||fallbackCreatedAt} satisfies SavedMessage]:[];
+  }).slice(-MAX_CASE_MESSAGES):[];
 }
 
 export function normalizeSourceFiles(value:unknown,fallbackCreatedAt:string):SourceProvenanceRecord[]{
@@ -77,6 +78,7 @@ export function normalizeSourceFiles(value:unknown,fallbackCreatedAt:string):Sou
   const seen=new Set<string>();
   const normalized:SourceProvenanceRecord[]=[];
   for(const item of value){
+    if(normalized.length>=MAX_CASE_SOURCES)break;
     const s=record(item),sha256=text(s.sha256).toLowerCase();
     if(!/^[a-f0-9]{64}$/.test(sha256)||seen.has(sha256))continue;
     seen.add(sha256);

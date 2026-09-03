@@ -1,5 +1,6 @@
 import {z} from "zod";
 import {sanitizeManualHttpsUrl} from "./manual-url.ts";
+import {MAX_CASE_SOURCES} from "./case-limits.ts";
 
 export const MAX_CHAT_REQUEST_BYTES=4_000_000;
 
@@ -45,7 +46,7 @@ const ChatRequestBody=z.object({
   mode:z.enum(["homeowner","pro"]),
   messages:z.array(z.object({role:z.enum(["user","assistant"]),content:z.string().min(1).max(20000)})).min(1).max(40),
   attachments:z.array(Attachment).max(6).optional(),
-  source_manifest:z.array(SourceManifestRecord).max(30).optional(),
+  source_manifest:z.array(SourceManifestRecord).max(MAX_CASE_SOURCES).optional(),
   context:z.object({
     appliance_type:z.string().max(200).optional(),manufacturer:z.string().max(200).optional(),
     model:z.string().max(200).optional(),inspection_level:z.string().max(100).optional(),

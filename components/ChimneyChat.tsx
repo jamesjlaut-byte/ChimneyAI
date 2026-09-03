@@ -17,6 +17,7 @@ import MessageContent from "@/components/MessageContent";
 import {defaultSourceRole} from "@/lib/default-source-role";
 import {markLastAttemptFailed,modelHistory,type ChatHistoryMessage} from "@/lib/chat-history";
 import {clearProDraft,isMeaningfulProDraft,loadProDraft,saveProDraft} from "@/lib/pro-draft";
+import {MAX_CASE_SOURCES} from "@/lib/case-limits";
 
 type Mode="homeowner"|"pro"; type Msg=ChatHistoryMessage;
 const starterHomeowner=["Explain this inspection report to me.","What does this repair recommendation mean?","What should I ask before hiring a chimney sweep?","Can you explain what you can see in a fireplace photo?"];
@@ -88,15 +89,22 @@ export default function ChimneyChat({mode}:{mode:Mode}){
 
   async function addFiles(files:FileList|null){
     if(!files||busy)return;
-    const selected=Array.from(files),available=6-attachments.length,sourceContext=proSource;
-    if(available<=0){setAttachmentStatus("Remove an attachment before adding another. Maximum: 6.");return}
+    const selected=Array.from(files),attachmentSlots=6-attachments.length;
+    const sourceSlots=mode==="pro"?MAX_CASE_SOURCES-sourceFiles.length:attachmentSlots;
+    const available=Math.min(attachmentSlots,sourceSlots),sourceContext=proSource;
+    if(available<=0){
+      setAttachmentStatus(attachmentSlots<=0
+        ?"Remove an attachment before adding another. Maximum active attachments: 6."
+        :`This case has reached ${MAX_CASE_SOURCES} source fingerprint records. Save/export it and begin a new case before adding new evidence.`);
+      return;
+    }
     setAttachmentStatus(`Preparing ${Math.min(selected.length,available)} attachment${Math.min(selected.length,available)===1?"":"s"}…`);
     const next=[...attachments],errors:string[]=[];
     for(const f of selected.slice(0,available)){
       try{next.push(await prepareAttachment(f))}
       catch(e){errors.push(`${f.name}: ${e instanceof Error?e.message:"Could not prepare file."}`)}
     }
-    if(selected.length>available)errors.push(`${selected.length-available} file${selected.length-available===1?" was":"s were"} skipped (maximum 6).`);
+    if(selected.length>available)errors.push(`${selected.length-available} file${selected.length-available===1?" was":"s were"} skipped (active limit 6; case source limit ${MAX_CASE_SOURCES}).`);
     setAttachments(next);
     const added=next.length-attachments.length;
     const prepared=next.slice(attachments.length);
