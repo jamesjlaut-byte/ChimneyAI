@@ -220,3 +220,12 @@ Structured label OCR, chimney-specific photo classification/second look, voice c
 - Inspection revision RLS verifies both the revision owner and ownership of its referenced parent inspection.
 - A forward migration applies the same parent-ownership requirement to legacy Pro Case source and revision rows.
 - Type check, tests, production build, Pro evals, mobile/desktop smoke checks, saved-case recovery, file-vault recovery, and unconfigured-cloud fallback pass.
+
+## Phase 1 verification record — 2026-09-03
+
+- Implementation complete: the versioned inspection aggregate, normalization, browser persistence, lifecycle protection, technician review provenance, evidence scoping, additive Supabase schema, and forward hardening migrations are present.
+- Automated regression: ESLint passed; 33 fictional-data safety and persistence tests passed; the Next.js production build generated all 13 routes without type or build errors.
+- Live browser smoke check: `/`, `/homeowner`, `/pro`, and `/legal` rendered at desktop and 390 × 844 mobile viewports with meaningful content, loaded approved logo assets, no horizontal overflow, no framework error overlay, and no captured console warnings/errors. Homeowner ↔ Pro navigation passed.
+- Saved-case/draft recovery, source capacities, exact-byte SHA-256 hashing, Source File Manifest normalization, and malformed inspection-storage recovery are covered by the automated regression suite.
+- External blocker: the live fictional Pro evaluation reached `/api/chat` but returned `openai_quota_exceeded`. Provider-backed quality evaluation remains blocked until OpenAI API credits/quota are restored.
+- Deployment prerequisite: migrations `0001` through `0006` must be applied to any configured Supabase project before cloud inspection persistence is enabled. No configured Supabase project was available for migration verification in this workspace.
