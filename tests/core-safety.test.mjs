@@ -61,6 +61,13 @@ test("guided inspection checklists adapt to system and inspection level",()=>{
   assert.equal(firstIncompleteChecklistIndex(woodStove,woodStove.map(item=>item.id)),woodStove.length-1);
   assert.deepEqual(missingChecklistItems(woodStove,woodStove.slice(0,2).map(item=>item.id)),woodStove.slice(2));
   assert.deepEqual(missingChecklistItems(woodStove,woodStove.map(item=>item.id)),[]);
+  assert.deepEqual(missingChecklistItems(levelTwo,woodStove.map(item=>item.id)).map(item=>item.id),["attic_access","video_scan"]);
+});
+
+test("saving reviewed inspection setup reopens component review",()=>{
+  const setup=readFileSync(new URL("../components/InspectionSetup.tsx",import.meta.url),"utf8");
+  assert.ok(setup.includes('status:active?.status==="ready_for_review"?"in_progress":active?.status||"in_progress"'));
+  assert.equal(canTransitionInspectionStatus("ready_for_review","in_progress"),true);
 });
 
 test("manufacturer registry resolves canonical names and field aliases",()=>{

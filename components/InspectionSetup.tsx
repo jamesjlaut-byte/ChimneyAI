@@ -39,7 +39,7 @@ export default function InspectionSetup(){
     const priorSystem=active?.systems[0],systemId=priorSystem?.id||newId("system");
     const candidate=normalizeInspection({
       ...(active||{}),version:INSPECTION_SCHEMA_VERSION,id:active?.id||newId("inspection"),created_at:active?.created_at||now,updated_at:now,
-      started_at:active?.started_at||now,status:active?.status||"in_progress",inspection_date:active?.inspection_date||localDate(),inspection_type:inspectionType,
+      started_at:active?.started_at||now,status:active?.status==="ready_for_review"?"in_progress":active?.status||"in_progress",inspection_date:active?.inspection_date||localDate(),inspection_type:inspectionType,
       technician:{...active?.technician,id:active?.technician.id||newId("technician"),name:technicianName},
       customer:{...active?.customer,id:customerId,first_name:firstName,last_name:lastName},
       property:{...active?.property,id:propertyId,customer_id:customerId,street_address:streetAddress,city,state,postal_code:postalCode},
@@ -48,7 +48,7 @@ export default function InspectionSetup(){
       report:active?.report||{status:"not_started",signature_status:"not_requested",revision:0}
     });
     if(!candidate){setStatus("Inspection setup could not be saved. Review the required fields and try again.");return}
-    try{saveInspections(upsertInspection(loadInspections(),candidate));setActive(candidate);setStatus("Inspection setup saved on this device. Guided component questions are the next workflow step.")}
+    try{saveInspections(upsertInspection(loadInspections(),candidate));setActive(candidate);setStatus(active?.status==="ready_for_review"?"Setup saved. Review reopened: check the component checklist before marking ready again.":"Inspection setup saved on this device. Continue with the component checklist below.")}
     catch(error){setStatus(error instanceof Error?error.message:"Inspection setup could not be saved in this browser.")}
   }
 
