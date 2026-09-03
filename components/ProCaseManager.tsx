@@ -6,8 +6,9 @@ import type {ManualVerification} from "@/components/ManualVerificationCard";
 import type {SourceProvenanceRecord} from "@/lib/source-provenance";
 import {hashManualIdentity} from "@/lib/source-hash";
 import {syncCaseToCloud} from "@/lib/workspace-sync";
+import {recordableHistory,type ChatHistoryMessage} from "@/lib/chat-history";
 
-type ChatMsg={role:"user"|"assistant";content:string};
+type ChatMsg=ChatHistoryMessage;
 
 export default function ProCaseManager({
   source,manual,messages,sourceFiles,onLoad,onClearChat
@@ -40,7 +41,7 @@ export default function ProCaseManager({
   async function saveCurrent(){
     const now=new Date().toISOString();
     const manual_identity_hash=await hashManualIdentity({manufacturer:source.manufacturer,model:source.model,...manual});
-    const savedMessages:SavedMessage[]=messages.map(m=>({...m,created_at:now}));
+    const savedMessages:SavedMessage[]=recordableHistory(messages).map(m=>({...m,created_at:now}));
     const existing=editingId?cases.find(c=>c.id===editingId):undefined;
     const c:ProCase={
       id:existing?.id||crypto.randomUUID(),

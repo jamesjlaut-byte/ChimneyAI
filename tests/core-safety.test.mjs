@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import {test} from "node:test";
 
 import {defaultSourceRole} from "../lib/default-source-role.ts";
-import {markLastAttemptFailed,modelHistory} from "../lib/chat-history.ts";
+import {markLastAttemptFailed,modelHistory,recordableHistory} from "../lib/chat-history.ts";
 import {MAX_CHAT_REQUEST_BYTES,parseChatRequest} from "../lib/chat-request.ts";
 import {MANUFACTURERS,matchManufacturer} from "../lib/manual-registry.ts";
 import {modelsConflict,normalizeModelIdentifier} from "../lib/model-identity.ts";
@@ -39,6 +39,7 @@ test("model history excludes client service errors and keeps the latest valid co
     {role:"user",content:"Retry question"},
     {role:"assistant",content:"Technical answer"}
   ]);
+  assert.deepEqual(recordableHistory(history),modelHistory(history));
   assert.deepEqual(modelHistory(history,2),[
     {role:"user",content:"Retry question"},
     {role:"assistant",content:"Technical answer"}
