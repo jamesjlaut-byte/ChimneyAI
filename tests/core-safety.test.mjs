@@ -31,6 +31,15 @@ test("chat request validation enforces modes, limits, hashes, and upload types",
   assert.equal(parseChatRequest({...base,attachments:[{
     kind:"image",name:"photo.svg",mime_type:"image/svg+xml",data_url:"data:image/svg+xml;base64,PHN2Zz4="
   }]}).success,false);
+  assert.equal(parseChatRequest({...base,attachments:[{
+    kind:"image",name:"photo.png",mime_type:"image/png",data_url:"data:image/png;base64,iVBORw=="
+  }]}).success,true);
+  assert.equal(parseChatRequest({...base,attachments:[{
+    kind:"image",name:"mismatch.png",mime_type:"image/png",data_url:"data:image/jpeg;base64,iVBORw=="
+  }]}).success,false);
+  assert.equal(parseChatRequest({...base,attachments:[{
+    kind:"image",name:"bad-padding.png",mime_type:"image/png",data_url:"data:image/png;base64,abc==="
+  }]}).success,false);
   assert.equal(parseChatRequest({...base,source_manifest:[{
     file_name:"manual.pdf",mime_type:"application/pdf",byte_size:10,sha256:"not-a-hash",role:"manual",note:""
   }]}).success,false);

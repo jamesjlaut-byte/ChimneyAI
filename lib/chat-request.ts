@@ -17,7 +17,7 @@ const Attachment=z.discriminatedUnion("kind",[
     ...AttachmentMetadata,
     kind:z.literal("image"),
     mime_type:z.enum(["image/jpeg","image/png","image/webp","image/gif"]),
-    data_url:z.string().max(MAX_CHAT_REQUEST_BYTES).regex(/^data:image\/(?:jpeg|png|webp|gif);base64,[a-z0-9+/]+=*$/i)
+    data_url:z.string().max(MAX_CHAT_REQUEST_BYTES).regex(/^data:image\/(?:jpeg|png|webp|gif);base64,(?=[a-z0-9+/])(?:[a-z0-9+/]{4})*(?:[a-z0-9+/]{2}==|[a-z0-9+/]{3}=)?$/i)
   }).strict(),
   z.object({
     ...AttachmentMetadata,
@@ -72,6 +72,18 @@ const ChatRequestBody=z.object({
     source_status:z.enum(["uploaded","verified_external","reference_only","not_available"]).optional(),
     technician_question:z.string().max(3000).optional()
   }).optional()
+}).superRefine((body,ctx)=>{
+  body.attachments?.forEach((attachment,index)=>{
+    if(attachment.kind!=="image")return;
+    const declaredInDataUrl=attachment.data_url.slice(5,attachment.data_url.indexOf(";"));
+    if(declaredInDataUrl!==attachment.mime_type){
+      ctx.addIssue({
+        code:z.ZodIssueCode.custom,
+        path:["attachments",index,"data_url"],
+        message:"Image MIME type does not match its data URL."
+      });
+    }
+  });
 });
 
 export function parseChatRequest(value:unknown){
