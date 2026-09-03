@@ -1,6 +1,6 @@
 "use client";
 import {useMemo,useState} from "react";
-import {MANUFACTURERS,matchManufacturer} from "@/lib/manual-registry";
+import {matchManufacturer} from "@/lib/manual-registry";
 
 export default function ManualFinder({manufacturer,model,onPrepareQuestion}:{manufacturer:string;model:string;onPrepareQuestion:(q:string)=>void}){
   const [open,setOpen]=useState(false);
@@ -10,15 +10,15 @@ export default function ManualFinder({manufacturer,model,onPrepareQuestion}:{man
   return <div className="manualFinder">
     <div className="manualFinderHead">
       <div><b>Official Manual Finder</b><span>Label → exact model → manufacturer source → manual</span></div>
-      <button type="button" onClick={()=>setOpen(!open)}>{open?"Hide":"Open"}</button>
+      <button type="button" aria-expanded={open} aria-controls="manual-finder-panel" onClick={()=>setOpen(!open)}>{open?"Hide":"Open"}</button>
     </div>
-    {open&&<div className="manualFinderBody">
+    {open&&<div className="manualFinderBody" id="manual-finder-panel">
       <div className={`manualMatch ${exactReady?"ready":"waiting"}`}>
         <b>{exactReady?"Ready to verify exact model":"Exact model required"}</b>
         <span>{exactReady?`${manufacturer} · ${model}`:"Enter manufacturer and exact model in Source Desk or scan the rating/listing label."}</span>
       </div>
       {match?<div className="officialSource">
-        <div><small>KNOWN OFFICIAL LOOKUP · VERIFIED {match.verified_on}</small><b>{match.name}</b><span>{match.notes}</span></div>
+        <div><small>OFFICIAL MANUFACTURER LOOKUP · LINK CHECKED {match.verified_on}</small><b>{match.name}</b><span>{match.notes}</span></div>
         <a href={match.official_manual_lookup} target="_blank" rel="noreferrer">Open official manual lookup ↗</a>
       </div>:manufacturer?<div className="manualWarning">
         ChimneyAI does not yet have a verified official lookup registered for “{manufacturer}”. Do not substitute an unofficial manual just because the model name looks similar.

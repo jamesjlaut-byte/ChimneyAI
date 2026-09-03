@@ -16,7 +16,7 @@ export const MANUFACTURERS:ManufacturerRegistryEntry[]=[
     official_manual_lookup:"https://www.majesticproducts.com/homeowner-support/user-guides-and-manuals",
     lookup_type:"model_search",
     notes:"Official Majestic manual lookup by product name/model.",
-    verified_on:"2026-09-01"
+    verified_on:"2026-09-02"
   },
   {
     id:"heat-glo",
@@ -25,7 +25,7 @@ export const MANUFACTURERS:ManufacturerRegistryEntry[]=[
     official_manual_lookup:"https://www.heatnglo.com/manuals",
     lookup_type:"model_search",
     notes:"Official Heat & Glo manual lookup.",
-    verified_on:"2026-09-01"
+    verified_on:"2026-09-02"
   },
   {
     id:"heatilator",
@@ -34,7 +34,7 @@ export const MANUFACTURERS:ManufacturerRegistryEntry[]=[
     official_manual_lookup:"https://www.heatilator.com/owner-support/install-and-owners-manuals",
     lookup_type:"model_search",
     notes:"Official Heatilator installation and owner's manual support page.",
-    verified_on:"2026-09-01"
+    verified_on:"2026-09-02"
   },
   {
     id:"regency",
@@ -43,7 +43,7 @@ export const MANUFACTURERS:ManufacturerRegistryEntry[]=[
     official_manual_lookup:"https://www.regency-fire.com/en/Owners/Service-Maintenance/Manuals",
     lookup_type:"manual_index",
     notes:"Official Regency current manual index. Regency also maintains discontinued manuals.",
-    verified_on:"2026-09-01"
+    verified_on:"2026-09-02"
   },
   {
     id:"napoleon",
@@ -52,7 +52,7 @@ export const MANUFACTURERS:ManufacturerRegistryEntry[]=[
     official_manual_lookup:"https://www.napoleon.com/en/us/fireplaces/support/professionals-support-center",
     lookup_type:"support_center",
     notes:"Official Napoleon professional support center with product-manual resources.",
-    verified_on:"2026-09-01"
+    verified_on:"2026-09-02"
   }
 ];
 
