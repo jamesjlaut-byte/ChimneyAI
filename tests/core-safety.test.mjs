@@ -21,6 +21,19 @@ import {sha256Blob} from "../lib/source-file-store.ts";
 import {canTransitionInspectionStatus,normalizeInspection,parseInspections,serializeInspections,upsertInspection,validateInspectionCollectionUpdate} from "../lib/inspections.ts";
 import {firstIncompleteChecklistIndex,getInspectionChecklist,missingChecklistItems} from "../lib/inspection-checklists.ts";
 import {defaultPhotoCategory,MAX_INSPECTION_PHOTO_BYTES,recommendedPhotoGaps,validateInspectionPhoto} from "../lib/inspection-photo.ts";
+import {inspectionNoteDraftKey,parseInspectionNoteDraft,MAX_DRAFT_NOTE_LENGTH} from "../lib/inspection-note-draft.ts";
+
+test("inspection note drafts are bounded, scoped, and never confirmed findings",()=>{
+  const draft={version:1,inspectionId:"inspection-a",systemId:"system-a",component:"firebox",base:"baseline",note:"Unconfirmed field note"};
+  assert.deepEqual(parseInspectionNoteDraft(JSON.stringify(draft),"inspection-a","system-a"),draft);
+  assert.equal(parseInspectionNoteDraft(JSON.stringify(draft),"inspection-b","system-a"),null);
+  assert.equal(parseInspectionNoteDraft(JSON.stringify(draft),"inspection-a","system-b"),null);
+  assert.equal(parseInspectionNoteDraft("broken JSON","inspection-a","system-a"),null);
+  assert.equal(parseInspectionNoteDraft(JSON.stringify({...draft,note:"x".repeat(MAX_DRAFT_NOTE_LENGTH+1)}),"inspection-a","system-a"),null);
+  assert.equal(parseInspectionNoteDraft(JSON.stringify({...draft,version:2}),"inspection-a","system-a"),null);
+  assert.deepEqual(parseInspectionNoteDraft(JSON.stringify({...draft,status:"satisfactory",review_state:"technician_confirmed"}),"inspection-a","system-a"),draft);
+  assert.notEqual(inspectionNoteDraftKey("a:b","c"),inspectionNoteDraftKey("a","b:c"));
+});
 
 test("inspection photos use conservative component categories and file limits",()=>{
   assert.equal(defaultPhotoCategory("firebox"),"firebox");
