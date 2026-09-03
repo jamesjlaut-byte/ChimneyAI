@@ -12,6 +12,7 @@ const SIGNATURE_STATUSES=["not_requested","pending","signed"] as const;
 const SYSTEM_TYPES=["masonry_fireplace","factory_built_fireplace","wood_stove","wood_insert","pellet_appliance","gas_fireplace","gas_insert","gas_log_set","freestanding_gas_appliance","masonry_heater","other"] as const;
 const FINDING_STATUSES=["satisfactory","observation_noted","maintenance_recommended","repair_recommended","further_evaluation_recommended","unable_to_inspect","not_applicable"] as const;
 const REVIEW_STATES=["not_requested","ai_suggested","technician_confirmed","technician_rejected"] as const;
+const AI_CONFIDENCE_LEVELS=["low","moderate","high"] as const;
 const MEASUREMENT_METHODS=["manual","tape","laser","camera_assisted","calculated"] as const;
 const MEASUREMENT_CONFIDENCE=["technician_entered","ai_estimated","verified"] as const;
 const PHOTO_CATEGORIES=["firebox","hearth","damper","smoke_chamber","flue","cap","crown","chase_cover","flashing","chimney_exterior","attic","firestop","insulation_shield","connector","appliance","data_plate","clearance","defect","repair","before","after","other"] as const;
@@ -22,6 +23,7 @@ export type SignatureStatus=typeof SIGNATURE_STATUSES[number];
 export type SystemType=typeof SYSTEM_TYPES[number];
 export type FindingStatus=typeof FINDING_STATUSES[number];
 export type ReviewState=typeof REVIEW_STATES[number];
+export type AiConfidence=typeof AI_CONFIDENCE_LEVELS[number];
 export type MeasurementMethod=typeof MEASUREMENT_METHODS[number];
 export type MeasurementConfidence=typeof MEASUREMENT_CONFIDENCE[number];
 export type PhotoCategory=typeof PHOTO_CATEGORIES[number];
@@ -36,7 +38,7 @@ export type InspectionSystem={
 };
 export type InspectionFinding={
   id:string;system_id:string;component:string;raw_note:string;technician_observation:string;ai_suggestion:string;
-  review_state:ReviewState;reviewed_by:string|null;reviewed_at:string|null;status:FindingStatus;recommendation:string;source_sha256:string[];photo_ids:string[];
+  ai_confidence:AiConfidence|null;review_state:ReviewState;reviewed_by:string|null;reviewed_at:string|null;status:FindingStatus;recommendation:string;source_sha256:string[];photo_ids:string[];
   measurement_ids:string[];created_at:string;updated_at:string;
 };
 export type InspectionMeasurement={
@@ -46,7 +48,7 @@ export type InspectionMeasurement={
 };
 export type InspectionPhoto={
   id:string;system_id:string;source_sha256:string;category:PhotoCategory;caption:string;finding_ids:string[];
-  ai_category_suggestion:PhotoCategory|null;review_state:ReviewState;reviewed_by:string|null;reviewed_at:string|null;
+  ai_category_suggestion:PhotoCategory|null;ai_confidence:AiConfidence|null;review_state:ReviewState;reviewed_by:string|null;reviewed_at:string|null;
 };
 export type InspectionReportLifecycle={status:ReportStatus;signature_status:SignatureStatus;revision:number;signed_at:string|null;delivered_at:string|null};
 export type Inspection={
@@ -120,6 +122,7 @@ export function normalizeInspection(value:unknown):Inspection|null{
     if(reviewState==="technician_confirmed"&&!technicianObservation)reviewState="ai_suggested";
     return [{id:findingId,system_id:systemId,component:text(finding.component,200),raw_note:text(finding.raw_note,5000),
       technician_observation:technicianObservation,ai_suggestion:aiSuggestion,
+      ai_confidence:aiSuggestion&&AI_CONFIDENCE_LEVELS.includes(finding.ai_confidence as AiConfidence)?finding.ai_confidence as AiConfidence:null,
       review_state:reviewState,reviewed_by:reviewState.startsWith("technician_")?reviewedBy:null,reviewed_at:reviewState.startsWith("technician_")?reviewedAt:null,
       status:enumValue(finding.status,FINDING_STATUSES,"observation_noted"),
       recommendation:text(finding.recommendation,5000),source_sha256:hashList(finding.source_sha256),
@@ -139,7 +142,8 @@ export function normalizeInspection(value:unknown):Inspection|null{
     else if((reviewState==="technician_confirmed"||reviewState==="technician_rejected")&&(!reviewedBy||!reviewedAt))reviewState="ai_suggested";
     return [{id:photoId,system_id:systemId,source_sha256:sourceSha,category:enumValue(photo.category,PHOTO_CATEGORIES,"other"),
       caption:text(photo.caption,2000),finding_ids:stringList(photo.finding_ids,100,100).filter(value=>findingIds.has(value)),
-      ai_category_suggestion:suggested,review_state:reviewState,reviewed_by:reviewState.startsWith("technician_")?reviewedBy:null,
+      ai_category_suggestion:suggested,ai_confidence:suggested&&AI_CONFIDENCE_LEVELS.includes(photo.ai_confidence as AiConfidence)?photo.ai_confidence as AiConfidence:null,
+      review_state:reviewState,reviewed_by:reviewState.startsWith("technician_")?reviewedBy:null,
       reviewed_at:reviewState.startsWith("technician_")?reviewedAt:null} satisfies InspectionPhoto];
   }).filter((photo,index,all)=>all.findIndex(candidate=>candidate.id===photo.id)===index).slice(0,MAX_INSPECTION_PHOTOS);
   const photoSystemById=new Map(photos.map(photo=>[photo.id,photo.system_id]));

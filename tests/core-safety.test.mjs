@@ -293,7 +293,9 @@ test("inspection foundation preserves valid links and rejects cross-system evide
   assert.equal(inspection.findings[0].review_state,"ai_suggested");
   assert.equal(inspection.findings[0].technician_observation,"");
   assert.equal(inspection.findings[0].reviewed_by,null);
+  assert.equal(inspection.findings[0].ai_confidence,null);
   assert.equal(inspection.photos[0].ai_category_suggestion,null);
+  assert.equal(inspection.photos[0].ai_confidence,null);
   assert.equal(upsertInspection([],inspection)[0].id,"inspection-1");
 });
 
@@ -321,13 +323,15 @@ test("inspection foundation records explicit technician review provenance",()=>{
     version:1,id:"inspection-reviewed",created_at:"2026-09-03T12:00:00.000Z",
     customer:{id:"customer-1"},property:{id:"property-1",customer_id:"customer-1"},
     systems:[{id:"system-1",property_id:"property-1",system_type:"factory_built_fireplace"}],
-    findings:[{id:"finding-1",system_id:"system-1",ai_suggestion:"Possible refractory separation.",technician_observation:"Separation observed at the rear refractory panel.",review_state:"technician_confirmed",reviewed_by:"tech-1",reviewed_at:"2026-09-03T12:05:00.000Z"}],
-    photos:[{id:"photo-1",system_id:"system-1",source_sha256:"d".repeat(64),category:"firebox",ai_category_suggestion:"firebox",review_state:"technician_rejected",reviewed_by:"tech-1",reviewed_at:"2026-09-03T12:06:00.000Z"}]
+    findings:[{id:"finding-1",system_id:"system-1",ai_suggestion:"Possible refractory separation.",ai_confidence:"moderate",technician_observation:"Separation observed at the rear refractory panel.",review_state:"technician_confirmed",reviewed_by:"tech-1",reviewed_at:"2026-09-03T12:05:00.000Z"}],
+    photos:[{id:"photo-1",system_id:"system-1",source_sha256:"d".repeat(64),category:"firebox",ai_category_suggestion:"firebox",ai_confidence:"high",review_state:"technician_rejected",reviewed_by:"tech-1",reviewed_at:"2026-09-03T12:06:00.000Z"}]
   });
   assert.ok(reviewed);
   assert.equal(reviewed.findings[0].review_state,"technician_confirmed");
   assert.equal(reviewed.findings[0].reviewed_by,"tech-1");
+  assert.equal(reviewed.findings[0].ai_confidence,"moderate");
   assert.equal(reviewed.photos[0].review_state,"technician_rejected");
+  assert.equal(reviewed.photos[0].ai_confidence,"high");
   assert.equal(reviewed.photos[0].reviewed_at,"2026-09-03T12:06:00.000Z");
 });
 
