@@ -1,18 +1,19 @@
 "use client";
 import {useEffect,useRef,useState} from "react";
-import type {ChatAttachment} from "@/lib/client-attachments";
+import {prepareAttachment,type ChatAttachment} from "@/lib/client-attachments";
 import type {SourceProvenanceRecord} from "@/lib/source-provenance";
 import {provenanceFromAttachment} from "@/lib/source-provenance";
 import {deleteStoredSourceFile,getStoredSourceFile,persistRawFile,putStoredSourceFile,verifyStoredSourceFile} from "@/lib/source-file-store";
 import {defaultSourceRole,type SourceRoleContext} from "@/lib/default-source-role";
 
 export default function SourceManifest({
-  attachments,records,sourceContext,onChange
+  attachments,records,sourceContext,onChange,onAttach
 }:{
   attachments:ChatAttachment[];
   records:SourceProvenanceRecord[];
   sourceContext?:SourceRoleContext;
   onChange:(r:SourceProvenanceRecord[])=>void;
+  onAttach:(attachment:ChatAttachment)=>"attached"|"duplicate"|"full";
 }){
   const [busy,setBusy]=useState<string|null>(null);
   const [status,setStatus]=useState("");
@@ -76,6 +77,36 @@ export default function SourceManifest({
       const a=document.createElement("a");a.href=url;a.download=stored.name;a.click();
       setTimeout(()=>URL.revokeObjectURL(url),1000);
     }catch(e:unknown){setStatus(e instanceof Error?e.message:"Could not open the stored source file.");}
+    finally{setBusy(null)}
+  }
+
+  async function useInChat(record:SourceProvenanceRecord){
+    setBusy(record.sha256);setStatus("");
+    try{
+      const verification=await verifyStoredSourceFile(record.sha256);
+      if(!verification.exists){
+        update(record.sha256,{storage_status:"missing",integrity_status:"missing"});
+        setStatus("Stored source bytes are missing from this browser.");
+        return;
+      }
+      if(!verification.match){
+        update(record.sha256,{storage_status:"persisted_browser",integrity_status:"mismatch"});
+        setStatus("WARNING: stored bytes do not match the recorded SHA-256 and were not added to chat.");
+        return;
+      }
+      const stored=verification.stored;
+      if(!stored)throw new Error("Stored source file could not be reopened.");
+      const file=new File([stored.blob],record.file_name,{type:record.mime_type});
+      const prepared=await prepareAttachment(file);
+      if(prepared.sha256!==record.sha256)throw new Error("Reprepared source does not match the recorded SHA-256.");
+      const result=onAttach(prepared);
+      update(record.sha256,{storage_status:"persisted_browser",integrity_status:"verified"});
+      setStatus(result==="attached"
+        ?`${record.file_name} was re-verified, prepared, and added to active chat sources.`
+        :result==="duplicate"
+          ?`${record.file_name} is already active in chat.`
+          :"Remove an active attachment before adding this source. Maximum: 6.");
+    }catch(e:unknown){setStatus(e instanceof Error?e.message:"Could not prepare the stored source for chat.");}
     finally{setBusy(null)}
   }
 
@@ -151,6 +182,7 @@ export default function SourceManifest({
             <div className="vaultActions">
               {attached&&r.storage_status!=="persisted_browser"&&<button type="button" onClick={()=>persist(attached)}>Persist</button>}
               {r.storage_status==="persisted_browser"&&<>
+                {!attached&&<button type="button" disabled={busy===r.sha256} onClick={()=>useInChat(r)}>{busy===r.sha256?"Preparing…":"Use in chat"}</button>}
                 <button type="button" disabled={busy===r.sha256} onClick={()=>verify(r.sha256)}>Verify hash</button>
                 <button type="button" disabled={busy===r.sha256} onClick={()=>download(r.sha256)}>Open/download</button>
                 <button type="button" disabled={busy===r.sha256} onClick={()=>removeBytes(r.sha256)}>Remove bytes</button>

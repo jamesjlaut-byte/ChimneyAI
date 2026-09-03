@@ -1,6 +1,6 @@
 "use client";
 import Image from "next/image";
-import {useMemo,useRef,useState} from "react";
+import {useEffect,useMemo,useRef,useState} from "react";
 import {prepareAttachment,type ChatAttachment} from "@/lib/client-attachments";
 import ProFieldTools from "@/components/ProFieldTools";
 import ProSourceDesk,{EMPTY_PRO_SOURCE,type ProSourceState} from "@/components/ProSourceDesk";
@@ -26,7 +26,9 @@ export default function ChimneyChat({mode}:{mode:Mode}){
   const [proSource,setProSource]=useState<ProSourceState>(EMPTY_PRO_SOURCE);
   const [manualVerification,setManualVerification]=useState<ManualVerification>(EMPTY_MANUAL);
   const [sourceFiles,setSourceFiles]=useState<SourceProvenanceRecord[]>([]);
-  const inputRef=useRef<HTMLInputElement>(null);const starters=useMemo(()=>mode==="pro"?starterPro:starterHomeowner,[mode]);
+  const inputRef=useRef<HTMLInputElement>(null),attachmentsRef=useRef(attachments);
+  const starters=useMemo(()=>mode==="pro"?starterPro:starterHomeowner,[mode]);
+  useEffect(()=>{attachmentsRef.current=attachments},[attachments]);
   const evidenceChecks=useMemo(()=>{
     const identityFields=[proSource.manufacturer.trim(),proSource.model.trim()];
     const identityCount=identityFields.filter(Boolean).length;
@@ -132,6 +134,16 @@ export default function ChimneyChat({mode}:{mode:Mode}){
     }
   }
 
+  function attachFromVault(attachment:ChatAttachment){
+    const current=attachmentsRef.current;
+    if(current.some(item=>item.sha256===attachment.sha256))return "duplicate" as const;
+    if(current.length>=6)return "full" as const;
+    const next=[...current,attachment];
+    attachmentsRef.current=next;
+    setAttachments(next);
+    return "attached" as const;
+  }
+
   function startNewChat(){
     const warning=mode==="pro"?"Start a new chat? Save the current Pro case first if you need this conversation.":"Start a new chat? This conversation will be cleared.";
     if(!window.confirm(warning))return;
@@ -171,7 +183,7 @@ export default function ChimneyChat({mode}:{mode:Mode}){
     <ProSourceDesk value={proSource} onChange={setProSource}/>
     <ManualFinder manufacturer={proSource.manufacturer} model={proSource.model} onPrepareQuestion={setText}/>
     <ManualVerificationCard value={manualVerification} onChange={setManualVerification} manufacturer={proSource.manufacturer} model={proSource.model}/>
-    <SourceManifest attachments={attachments} records={sourceFiles} sourceContext={proSource} onChange={setSourceFiles}/>
+    <SourceManifest attachments={attachments} records={sourceFiles} sourceContext={proSource} onChange={setSourceFiles} onAttach={attachFromVault}/>
     <ProFieldTools/>
     <ProCaseManager source={proSource} manual={manualVerification} messages={messages} sourceFiles={sourceFiles}
       onLoad={({source,manual,question,messages:loadedMessages,sourceFiles:loadedSourceFiles})=>{setProSource(source);setManualVerification(manual);setMessages(loadedMessages);setSourceFiles(loadedSourceFiles);if(question)setText(question)}}

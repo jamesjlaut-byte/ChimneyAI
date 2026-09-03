@@ -79,11 +79,11 @@ export async function listStoredSourceFiles():Promise<StoredSourceFile[]>{
 
 export async function verifyStoredSourceFile(sha256:string){
   const stored=await getStoredSourceFile(sha256);
-  if(!stored)return {exists:false,match:false,computed:null as string|null};
+  if(!stored)return {exists:false,match:false,computed:null as string|null,stored:null};
   const bytes=await stored.blob.arrayBuffer();
   const digest=await crypto.subtle.digest("SHA-256",bytes);
   const computed=Array.from(new Uint8Array(digest)).map(x=>x.toString(16).padStart(2,"0")).join("");
-  return {exists:true,match:computed===sha256,computed};
+  return {exists:true,match:computed===sha256,computed,stored};
 }
 
 export async function persistAttachmentBytes(a:ChatAttachment){
