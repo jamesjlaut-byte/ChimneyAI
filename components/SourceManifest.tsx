@@ -2,7 +2,7 @@
 import {useEffect,useRef,useState} from "react";
 import {prepareAttachment,type ChatAttachment} from "@/lib/client-attachments";
 import type {SourceProvenanceRecord} from "@/lib/source-provenance";
-import {provenanceFromAttachment} from "@/lib/source-provenance";
+import {provenanceFromAttachment,originalSourceHash} from "@/lib/source-provenance";
 import {deleteStoredSourceFile,getStoredSourceFile,persistRawFile,putStoredSourceFile,verifyStoredSourceFile} from "@/lib/source-file-store";
 import {defaultSourceRole,type SourceRoleContext} from "@/lib/default-source-role";
 
@@ -26,7 +26,7 @@ export default function SourceManifest({
       const next=await Promise.all(records.map(async r=>{
         const stored=await getStoredSourceFile(r.sha256);
         if(!active)return r;
-        const availableInSession=attachments.some(a=>a.sha256===r.sha256);
+        const availableInSession=attachments.some(a=>originalSourceHash(a)===r.sha256);
         return {...r,storage_status:stored?"persisted_browser":availableInSession?"session_only":"missing"} as SourceProvenanceRecord;
       }));
       if(active&&JSON.stringify(next)!==JSON.stringify(records))onChange(next);
@@ -35,10 +35,10 @@ export default function SourceManifest({
   // Deliberately rerun only when record or active-attachment identities change.
   // onChange is created by the parent render and including it would turn status normalization into a loop.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[records.map(r=>r.sha256).join("|"),attachments.map(a=>a.sha256).join("|")]);
+  },[records.map(r=>r.sha256).join("|"),attachments.map(a=>originalSourceHash(a)).join("|")]);
 
   function add(a:ChatAttachment){
-    if(records.some(r=>r.sha256===a.sha256))return;
+    if(records.some(r=>r.sha256===originalSourceHash(a)))return;
     onChange([...records,provenanceFromAttachment(a,defaultSourceRole(a,sourceContext))]);
   }
 
@@ -48,13 +48,13 @@ export default function SourceManifest({
 
   async function persist(a:ChatAttachment){
     if(!a.original_blob){setStatus("Original bytes are not available in this session.");return}
-    setBusy(a.sha256);setStatus("");
+    setBusy(originalSourceHash(a));setStatus("");
     try{
       await putStoredSourceFile({
-        sha256:a.sha256,name:a.name,mime_type:a.original_mime_type||a.mime_type,byte_size:a.byte_size,
+        sha256:originalSourceHash(a),name:a.name,mime_type:a.original_mime_type||a.mime_type,byte_size:a.original_byte_size??a.byte_size,
         saved_at:new Date().toISOString(),blob:a.original_blob
       });
-      update(a.sha256,{storage_status:"persisted_browser",persisted_at:new Date().toISOString(),integrity_status:"unchecked"});
+      update(originalSourceHash(a),{storage_status:"persisted_browser",persisted_at:new Date().toISOString(),integrity_status:"unchecked"});
       setStatus(`Saved exact source bytes for ${a.name} in this browser.`);
     }catch(e:unknown){setStatus(e instanceof Error?e.message:"Could not persist source file.");}
     finally{setBusy(null)}
@@ -100,7 +100,7 @@ export default function SourceManifest({
       if(!stored)throw new Error("Stored source file could not be reopened.");
       const file=new File([stored.blob],record.file_name,{type:record.mime_type});
       const prepared=await prepareAttachment(file);
-      if(prepared.sha256!==record.sha256)throw new Error("Reprepared source does not match the recorded SHA-256.");
+      if(originalSourceHash(prepared)!==record.sha256)throw new Error("Reprepared source does not match the recorded SHA-256.");
       const result=onAttach(prepared);
       update(record.sha256,{storage_status:"persisted_browser",integrity_status:"verified"});
       setStatus(result==="attached"
@@ -150,21 +150,21 @@ export default function SourceManifest({
         {attachments.map(a=><div className="candidate" key={a.id}>
           <div>
             <span>{a.name}</span>
-            <small>{a.original_mime_type||a.mime_type} · {a.byte_size.toLocaleString()} original bytes · SHA-256 {a.sha256.slice(0,16)}…{a.image_optimized?" · resized AI copy":""}</small>
+            <small>{a.original_mime_type||a.mime_type} · {(a.original_byte_size??a.byte_size).toLocaleString()} original bytes · SHA-256 {originalSourceHash(a).slice(0,16)}…{a.image_optimized?" · resized AI copy":""}</small>
           </div>
           <div className="candidateButtons">
-            <button type="button" disabled={records.some(r=>r.sha256===a.sha256)} onClick={()=>add(a)}>
-              {records.some(r=>r.sha256===a.sha256)?"Recorded":"Add to case"}
+            <button type="button" disabled={records.some(r=>r.sha256===originalSourceHash(a))} onClick={()=>add(a)}>
+              {records.some(r=>r.sha256===originalSourceHash(a))?"Recorded":"Add to case"}
             </button>
-            {records.some(r=>r.sha256===a.sha256)&&
-              <button type="button" disabled={busy===a.sha256} onClick={()=>persist(a)}>Persist bytes</button>}
+            {records.some(r=>r.sha256===originalSourceHash(a))&&
+              <button type="button" disabled={busy===originalSourceHash(a)} onClick={()=>persist(a)}>Persist bytes</button>}
           </div>
         </div>)}
       </div>}
 
       {records.length===0?<p className="emptyManifest">No source files recorded yet.</p>:
       <div className="manifestList">{records.map(r=>{
-        const attached=attachments.find(a=>a.sha256===r.sha256);
+        const attached=attachments.find(a=>originalSourceHash(a)===r.sha256);
         return <div className="manifestRow" key={r.sha256}>
           <div className="manifestIdentity">
             <div className="vaultTitle"><b>{r.file_name}</b><span className={`vaultState ${r.storage_status||"missing"}`}>{(r.storage_status||"missing").replaceAll("_"," ")}</span></div>

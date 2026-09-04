@@ -1,7 +1,7 @@
 "use client";
 import Image from "next/image";
 import dynamic from "next/dynamic";
-import {useEffect,useMemo,useRef,useState} from "react";
+import {useCallback,useEffect,useMemo,useRef,useState} from "react";
 import {prepareAttachment,type ChatAttachment} from "@/lib/client-attachments";
 import ProFieldTools from "@/components/ProFieldTools";
 import ProSourceDesk,{EMPTY_PRO_SOURCE,type ProSourceState} from "@/components/ProSourceDesk";
@@ -10,7 +10,7 @@ import ManualVerificationCard,{EMPTY_MANUAL,type ManualVerification} from "@/com
 import ProCaseManager from "@/components/ProCaseManager";
 import SourceManifest from "@/components/SourceManifest";
 import type {SourceProvenanceRecord} from "@/lib/source-provenance";
-import {provenanceFromAttachment} from "@/lib/source-provenance";
+import {provenanceFromAttachment,originalSourceHash} from "@/lib/source-provenance";
 import CloudWorkspace from "@/components/CloudWorkspace";
 import CloudCaseBrowser from "@/components/CloudCaseBrowser";
 import {modelsConflict} from "@/lib/model-identity";
@@ -19,7 +19,8 @@ import {defaultSourceRole} from "@/lib/default-source-role";
 import {markLastAttemptFailed,modelHistory,type ChatHistoryMessage} from "@/lib/chat-history";
 import {clearProDraft,isMeaningfulProDraft,loadProDraft,saveProDraft} from "@/lib/pro-draft";
 import {MAX_CASE_SOURCES} from "@/lib/case-limits";
-import {encodeChatUpload} from "@/lib/chat-upload";
+import {encodeChatUpload,estimateChatUploadBytes} from "@/lib/chat-upload";
+import {MAX_CHAT_REQUEST_BYTES} from "@/lib/chat-request";
 import {MAX_IMAGE_BATCH_BYTES} from "@/lib/phone-image";
 
 const InspectionSetup=dynamic(()=>import("@/components/InspectionSetup"),{ssr:false});
@@ -34,6 +35,15 @@ export default function ChimneyChat({mode}:{mode:Mode}){
   const [proSource,setProSource]=useState<ProSourceState>(EMPTY_PRO_SOURCE);
   const [manualVerification,setManualVerification]=useState<ManualVerification>(EMPTY_MANUAL);
   const [sourceFiles,setSourceFiles]=useState<SourceProvenanceRecord[]>([]);
+  const buildUploadPayload=useCallback((value:string)=>({
+    mode,messages:modelHistory([...messages,{role:"user" as const,content:value.trim()||`Please review the attached ${attachments.length===1?"file":"files"}.`}]),
+    attachments:attachments.map(({original_blob,...a})=>a),
+    source_manifest:mode==="pro"?sourceFiles.map(({file_name,mime_type,byte_size,sha256,page_count,text_truncated,role,note,storage_status,integrity_status})=>({file_name,mime_type,byte_size,sha256,page_count,text_truncated,role,note,storage_status,integrity_status})):undefined,
+    pro_source:mode==="pro"?proSource:undefined,
+    manual_verification:mode==="pro"?manualVerification:undefined
+  }),[mode,messages,attachments,sourceFiles,proSource,manualVerification]);
+  const estimatedUploadBytes=useMemo(()=>estimateChatUploadBytes(buildUploadPayload(text)),[buildUploadPayload,text]);
+  const uploadOverBudget=estimatedUploadBytes>MAX_CHAT_REQUEST_BYTES;
   const [draftReady,setDraftReady]=useState(mode!=="pro"),[draftStatus,setDraftStatus]=useState("");
   const inputRef=useRef<HTMLInputElement>(null),attachmentsRef=useRef(attachments);
   const requestRef=useRef<{id:number;controller:AbortController}|null>(null),nextRequestId=useRef(0);
@@ -148,8 +158,8 @@ export default function ChimneyChat({mode}:{mode:Mode}){
       setSourceFiles(current=>{
         const hashes=new Set(current.map(record=>record.sha256));
         const records=prepared.flatMap(file=>{
-          if(hashes.has(file.sha256))return [];
-          hashes.add(file.sha256);
+          if(hashes.has(originalSourceHash(file)))return [];
+          hashes.add(originalSourceHash(file));
           const role=defaultSourceRole(file,sourceContext);
           return [provenanceFromAttachment(file,role)];
         });
@@ -167,19 +177,12 @@ export default function ChimneyChat({mode}:{mode:Mode}){
     const cleaned=value.trim();if((!cleaned&&attachments.length===0)||busy||preparing)return;
     const userText=cleaned||`Please review the attached ${attachments.length===1?"file":"files"}.`;
     const next=[...messages,{role:"user" as const,content:userText}],currentAttachments=attachments;
-    const requestMessages=modelHistory(next);
+    const payload=buildUploadPayload(value);
+    if(estimateChatUploadBytes(payload)>MAX_CHAT_REQUEST_BYTES){setAttachmentStatus("This batch exceeds the upload budget. Remove a photo before sending; no manual resizing is needed.");return}
     setPreparing(true);
     setAttachmentStatus("Preparing upload…");
     let requestBody:Awaited<ReturnType<typeof encodeChatUpload>>;
-    try{requestBody=await encodeChatUpload({
-      mode,messages:requestMessages,
-      attachments:currentAttachments.map(({original_blob,...a})=>a),
-      source_manifest:mode==="pro"?sourceFiles.map(({
-        file_name,mime_type,byte_size,sha256,page_count,text_truncated,role,note,storage_status,integrity_status
-      })=>({file_name,mime_type,byte_size,sha256,page_count,text_truncated,role,note,storage_status,integrity_status})):undefined,
-      pro_source:mode==="pro"?proSource:undefined,
-      manual_verification:mode==="pro"?manualVerification:undefined
-    })}catch(error){setAttachmentStatus(error instanceof Error?error.message:"Could not prepare this upload.");return}
+    try{requestBody=await encodeChatUpload(payload)}catch(error){setAttachmentStatus(error instanceof Error?error.message:"Could not prepare this upload.");return}
     finally{setPreparing(false)}
     setMessages(next);setText("");setBusy(true);setAttachmentStatus("Uploading photos and question…");
     const controller=new AbortController(),requestId=++nextRequestId.current;
@@ -221,7 +224,7 @@ export default function ChimneyChat({mode}:{mode:Mode}){
 
   function attachFromVault(attachment:ChatAttachment){
     const current=attachmentsRef.current;
-    if(current.some(item=>item.sha256===attachment.sha256))return "duplicate" as const;
+    if(current.some(item=>originalSourceHash(item)===originalSourceHash(attachment)))return "duplicate" as const;
     if(current.length>=6)return "full" as const;
     const next=[...current,attachment];
     attachmentsRef.current=next;
@@ -258,6 +261,7 @@ export default function ChimneyChat({mode}:{mode:Mode}){
         {a.kind==="image"&&a.data_url&&<Image src={a.data_url} alt={`Prepared photo: ${a.name}`} width={88} height={66} style={{objectFit:"contain",flexShrink:0}} unoptimized/>}
         <span>{a.kind==="image"?"PHOTO":"DOC"} · {a.name}{a.page_count?` · ${a.page_count} pages`:""}{a.text_truncated?" · partial text":""} · {a.sha256.slice(0,10)}…</span><button type="button" aria-label={`Remove ${a.name}`} disabled={busy||preparing} onClick={()=>setAttachments(attachments.filter((_,x)=>x!==i))}>×</button></div>)}</div>}
       {attachmentStatus&&<div className="attachmentStatus" role="status" aria-live="polite">{attachmentStatus}</div>}
+      {attachments.some(a=>a.kind==="image")&&<div className="composerNote" role="status">{attachments.filter(a=>a.kind==="image").map(a=>`${a.name}: ${((a.original_byte_size??a.byte_size)/1_000_000).toFixed(1)} MB → ${Math.round(a.byte_size/1000)} KB`).join(" · ")}<br/>Estimated upload: {(estimatedUploadBytes/1_000_000).toFixed(2)} / 4.00 MB.{uploadOverBudget?" Remove a photo before sending; originals do not need resizing.":" Ready within upload budget."}</div>}
       {mode==="pro"&&attachments.some(a=>a.kind==="image")&&<div className="quickActions">
         <button type="button" onClick={()=>{setProSource({...proSource,task:"label_scan",source_type:"listing_label",source_status:"uploaded"});setText("Read this label carefully. Extract only legible manufacturer, model, serial, listing/standard markings, fuel/appliance information, and other visible installation data. Identify uncertain characters and tell me exactly what source/manual is needed next.");}}>Treat photo as label scan</button>
         <button type="button" onClick={()=>setText("Second-look these field photos. Separate visible observations, possible concerns, what cannot be determined, and what I should verify/document onsite.")}>Technical photo second-look</button>
@@ -267,7 +271,7 @@ export default function ChimneyChat({mode}:{mode:Mode}){
         placeholder={mode==="pro"?"Ask a technical question, or attach field documentation…":"Ask a question, or attach your report/photo…"} rows={3}/>
       <div className="composerActions"><button className="attachBtn" type="button" disabled={busy||preparing} onClick={()=>inputRef.current?.click()}>＋ Attach</button>
         <input ref={inputRef} hidden type="file" multiple disabled={busy||preparing} accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,.heic,.heif,.pdf,.txt,.md,.csv" onChange={e=>addFiles(e.target.files)}/>
-        <button className="sendBtn" type="button" onClick={()=>send()} disabled={busy||preparing||(!text.trim()&&attachments.length===0)}>Send</button></div>
+        <button className="sendBtn" type="button" onClick={()=>send()} disabled={busy||preparing||uploadOverBudget||(!text.trim()&&attachments.length===0)}>Send</button></div>
       <div className="composerNote">{mode==="pro"?"Active attachments stay with follow-ups until removed. Verify controlling sources and field conditions.":"Active uploads stay with follow-ups until removed. ChimneyAI cannot replace an onsite inspection or issue a safety clearance."}</div>
     </div>
   </div>

@@ -1,7 +1,20 @@
 import {MAX_CHAT_REQUEST_BYTES} from "./chat-request.ts";
 
+type UploadPayload={attachments:Array<{kind:string;data_url?:string}>}&Record<string,unknown>;
+export function estimateChatUploadBytes(payload:UploadPayload){
+  let imageBytes=0;
+  const attachments=payload.attachments.map(a=>{
+    if(a.kind!=="image"||!a.data_url)return a;
+    const encoded=a.data_url.slice(a.data_url.indexOf(",")+1);
+    imageBytes+=Math.floor(encoded.length*3/4)-(encoded.endsWith("==")?2:encoded.endsWith("=")?1:0);
+    return {...a,data_url:""};
+  });
+  // Conservative allowance for multipart part headers and boundary delimiters.
+  return imageBytes+new TextEncoder().encode(JSON.stringify({...payload,attachments})).byteLength+4096;
+}
+
 // Keep the browser → server hop binary. Only the model adapter needs data URLs.
-export async function encodeChatUpload(payload:{attachments: Array<{kind:string;data_url?:string}>} & Record<string,unknown>){
+export async function encodeChatUpload(payload:UploadPayload){
   const form=new FormData();
   const attachments=[];
   for(const [index,attachment] of payload.attachments.entries()){
@@ -47,6 +60,11 @@ export async function decodeChatUpload(req:Request):Promise<unknown>{
     if(attachment.kind!=="image")continue;
     const file=form.get(`photo-${index}`);
     if(!(file instanceof Blob)||!/^image\/(jpeg|png|webp|gif)$/.test(file.type)||file.type!==attachment.mime_type||file.size===0)throw new Error("invalid_request");
+    if(attachment.image_optimized){
+      const digest=await crypto.subtle.digest("SHA-256",await file.arrayBuffer());
+      const hash=Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,"0")).join("");
+      if(attachment.sha256!==hash||attachment.byte_size!==file.size)throw new Error("invalid_request");
+    }
     attachment.data_url=`data:${file.type};base64,${Buffer.from(await file.arrayBuffer()).toString("base64")}`;
   }
   return payload;

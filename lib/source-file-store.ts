@@ -101,14 +101,14 @@ export async function persistAttachmentBytes(a:ChatAttachment){
   }else{
     throw new Error("The original bytes for this attachment are not available in the current prepared-attachment object.");
   }
-  if(blob.size!==a.byte_size){
+  if(blob.size!==(a.original_byte_size??a.byte_size)){
     throw new Error("Attachment byte size changed before persistence.");
   }
   await putStoredSourceFile({
-    sha256:a.sha256,
+    sha256:a.original_sha256||a.sha256,
     name:a.name,
     mime_type:a.original_mime_type||a.mime_type,
-    byte_size:a.byte_size,
+    byte_size:a.original_byte_size??a.byte_size,
     saved_at:new Date().toISOString(),
     blob
   });

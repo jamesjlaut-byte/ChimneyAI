@@ -29,11 +29,11 @@ test("phone photos fit the AI upload budget without changing source provenance",
   assert.deepEqual(fitImageDimensions(3024,4032),{width:1728,height:2304});
   assert.deepEqual(fitImageDimensions(200,100),{width:200,height:100});
   assert.throws(()=>fitImageDimensions(0,100));
-  const photo={kind:"image",name:"phone.png",mime_type:"image/jpeg",original_mime_type:"image/png",image_optimized:true,byte_size:30*1024*1024,sha256:"a".repeat(64),data_url:"data:image/jpeg;base64,AAAA"};
+  const photo={kind:"image",name:"phone.png",mime_type:"image/jpeg",original_mime_type:"image/png",image_optimized:true,original_byte_size:30*1024*1024,original_sha256:"b".repeat(64),byte_size:3,sha256:"a".repeat(64),data_url:"data:image/jpeg;base64,AAAA"};
   assert.equal(parseChatRequest({mode:"pro",messages:[{role:"user",content:"Review"}],attachments:[photo]}).success,true);
   assert.equal(provenanceFromAttachment(photo).mime_type,"image/png");
-  assert.equal(provenanceFromAttachment(photo).byte_size,photo.byte_size);
-  assert.equal(provenanceFromAttachment(photo).sha256,photo.sha256);
+  assert.equal(provenanceFromAttachment(photo).byte_size,photo.original_byte_size);
+  assert.equal(provenanceFromAttachment(photo).sha256,photo.original_sha256);
   assert.ok(MAX_PHONE_IMAGE_BYTES>=30*1024*1024);
   assert.ok(6*MAX_ANALYSIS_IMAGE_BYTES<MAX_CHAT_REQUEST_BYTES);
 });

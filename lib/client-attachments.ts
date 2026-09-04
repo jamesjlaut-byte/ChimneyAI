@@ -15,6 +15,8 @@ export type ChatAttachment = {
   text_truncated?: boolean;
   original_blob?: Blob;
   original_mime_type?: string;
+  original_byte_size?: number;
+  original_sha256?: string;
   image_optimized?: boolean;
 };
 
@@ -74,11 +76,17 @@ export async function prepareAttachment(
 
   if (isImage) {
     const analysisImage=await preparePhoneImage(file,imageBudget);
+    const optimizedHash=await sha256(await analysisImage.arrayBuffer());
+    onProgress?.(`Photo reduced from ${(file.size/1_000_000).toFixed(1)} MB to ${Math.round(analysisImage.size/1000)} KB.`);
     return {
       ...base,
       kind: "image",
       mime_type:"image/jpeg",
       original_mime_type:mimeType,
+      original_byte_size:file.size,
+      original_sha256:fileHash,
+      byte_size:analysisImage.size,
+      sha256:optimizedHash,
       image_optimized:true,
       data_url: await readDataUrl(analysisImage),
     };

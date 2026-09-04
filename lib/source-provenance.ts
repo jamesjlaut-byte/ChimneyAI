@@ -16,6 +16,8 @@ export type SourceProvenanceRecord={
   integrity_status?:"unchecked"|"verified"|"mismatch"|"missing";
 };
 
+export function originalSourceHash(a:ChatAttachment){return a.original_sha256||a.sha256}
+
 export function provenanceFromAttachment(
   a:ChatAttachment,
   role:SourceProvenanceRecord["role"]="other",
@@ -25,8 +27,8 @@ export function provenanceFromAttachment(
     attachment_id:a.id,
     file_name:a.name,
     mime_type:a.original_mime_type||a.mime_type,
-    byte_size:a.byte_size,
-    sha256:a.sha256,
+    byte_size:a.original_byte_size??a.byte_size,
+    sha256:originalSourceHash(a),
     prepared_at:a.prepared_at,
     page_count:a.page_count,
     text_truncated:a.text_truncated,

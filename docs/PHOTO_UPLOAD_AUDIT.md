@@ -26,9 +26,11 @@ The user's exact historical request was not captured; the confirmed immediate re
 
 - Browser decodes the photo before sending; native decoding applies EXIF orientation, then canvas bakes the oriented pixels into JPEG. Do not rotate a second time.
 - HEIC/HEIF uses native decoding first, then lazy `heic-to/csp` 1.5.2 fallback. Conversion stays local. No unsafe-eval CSP relaxation or external converter.
-- Long edge starts at 2304 px, never upscales. JPEG quality is tried at 0.92, 0.86, then 0.80. Dimensions fall by 20% only if necessary to meet the batch budget. This can reduce fine detail in complex multi-photo batches: use smaller batches/close-ups for critical labels or cracks. No claim that compressed images establish defects or dimensions.
+- Long edge starts at 2304 px, never upscales. JPEG quality is tried at 0.85, then 0.80. Dimensions fall by 20% only if necessary to meet the batch budget. This can reduce fine detail in complex multi-photo batches: use smaller batches/close-ups for critical labels or cracks. No claim that compressed images establish defects or dimensions.
 - Total binary photo budget is 3,300,000 bytes, divided by active/selected photo count. One photo may use the whole budget; six get 550,000 each. Growing a batch re-encodes large existing copies from their original source, not from a compressed derivative.
 - Browser sends binary multipart data, not base64 JSON. The server reconstructs model data URLs after accepting the bounded body. Legacy JSON remains supported.
+- Active image `sha256` and `byte_size` now identify the optimized bytes, and the multipart decoder verifies them. Separate `original_sha256`, `original_byte_size`, and `original_mime_type` describe the untouched original. The source vault/manifest continues to identify and persist the original. These hashes are not interchangeable.
+- The composer shows original-to-optimized size and a conservative multipart request estimate before Send. Requests estimated above 4 MB disable Send with a smaller-batch explanation.
 - Reader cancels an oversized body even when Content-Length is missing. Overall 4,000,000-byte transport budget remains; exceptionally large conversation/source metadata can still require fewer photos per request.
 - Preserve case-sensitive multipart boundary headers separately from Blob.type. Never fetch a data URL under production connect-src; decode it locally.
 - Preserve original File references and SHA-256 without creating a duplicate full-size original Blob. Preparation is sequential, active chat files capped at six, decoded canvases/object URLs released. Inspection originals and optimized previews persist in IndexedDB; only optimized preview URLs render.
@@ -46,6 +48,14 @@ The user's exact historical request was not captured; the confirmed immediate re
 - Existing preceding fix verified original 36.6 MB source SHA in the browser vault.
 
 ## Release acceptance still required
+
+### Latest fingerprint and preflight verification
+
+The follow-up pass tested 4032x3024 JPEG fixtures padded to exactly 2, 5, 8, 12 and 15 MiB, plus EXIF orientation 6. At quality 0.85 the landscape files became 79,013-byte 2304x1728 JPEGs; the portrait became 79,955 bytes at 1728x2304. The displayed optimized fingerprint matched an independent SHA-256 of the rendered JPEG bytes. The page displayed a conservative 0.48 MB upload estimate before Send. All six passed the multipart decoder's optimized-byte hash/size checks and reached the missing-model-key response. This remains synthetic/local transport verification, not physical-iPhone/model acceptance.
+
+Restoring the previously persisted 36,592,556-byte PNG from the vault succeeded: the vault retained original SHA `fd9876410502fd0c1d00d71bfac3501e4d127446ad52c9be9973931a70b3209a`, while the regenerated active viewing copy displayed its different optimized hash. Automated tests also reject an optimized upload that incorrectly supplies the original hash.
+
+GitHub main was checked read-only and remained at `94b698fae9e692d88046d9db07ec4a0847ee9117`. Local implementation and GitHub publication are separate states. Do not mark the user acceptance test complete until the following checks pass.
 
 1. Deploy approved commits and confirm production serves the new bundle.
 2. On a real iPhone Safari, test Camera and Photo Library with JPEG and multiple HEIC variants, including portrait/mirrored orientation and iCloud-only photos.

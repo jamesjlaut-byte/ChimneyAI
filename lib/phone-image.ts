@@ -33,7 +33,7 @@ export async function preparePhoneImage(file:File,maxBytes=MAX_IMAGE_BATCH_BYTES
       if(!context)throw new Error("This browser cannot prepare the photo. Try another browser.");
       context.fillStyle="#fff";context.fillRect(0,0,size.width,size.height);
       context.drawImage(image,0,0,size.width,size.height);
-      for(const quality of [0.92,0.86,0.80]){
+      for(const quality of [0.85,0.80]){
         const blob=await new Promise<Blob>((resolve,reject)=>canvas.toBlob(result=>result?resolve(result):reject(new Error("Photo preparation failed. Please try again.")),"image/jpeg",quality));
         if(blob.size<=maxBytes)return blob;
       }

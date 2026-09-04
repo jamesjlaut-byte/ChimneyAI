@@ -20,6 +20,8 @@ const Attachment=z.discriminatedUnion("kind",[
     kind:z.literal("image"),
     original_mime_type:z.enum(["image/jpeg","image/png","image/webp","image/gif","image/heic","image/heif"]).optional(),
     image_optimized:z.boolean().optional(),
+    original_byte_size:z.number().int().positive().max(50*1024*1024).optional(),
+    original_sha256:z.string().regex(/^[a-f0-9]{64}$/i).optional(),
     mime_type:z.enum(["image/jpeg","image/png","image/webp","image/gif"]),
     data_url:z.string().max(4_400_100).regex(/^data:image\/(?:jpeg|png|webp|gif);base64,(?=[a-z0-9+/])(?:[a-z0-9+/]{4})*(?:[a-z0-9+/]{2}==|[a-z0-9+/]{3}=)?$/i)
   }).strict(),
