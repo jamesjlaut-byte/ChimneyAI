@@ -1,5 +1,5 @@
 import {finalizeExtractedText,MAX_EXTRACTED_TEXT_CHARS} from "./attachment-text";
-import {MAX_PHONE_IMAGE_BYTES,preparePhoneImage} from "./phone-image";
+import {MAX_ANALYSIS_IMAGE_BYTES,MAX_PHONE_IMAGE_BYTES,preparePhoneImage} from "./phone-image";
 
 export type ChatAttachment = {
   id: string;
@@ -42,23 +42,25 @@ function readDataUrl(file: Blob) {
 }
 
 export async function prepareAttachment(
-  file: File
+  file: File,onProgress?:(message:string)=>void,imageBudget=MAX_ANALYSIS_IMAGE_BYTES
 ): Promise<ChatAttachment> {
   const lowerName=file.name.toLowerCase();
   const inferredImageType:Record<string,string>={jpg:"image/jpeg",jpeg:"image/jpeg",png:"image/png",webp:"image/webp",gif:"image/gif",heic:"image/heic",heif:"image/heif"};
-  const mimeType=file.type.toLowerCase()||inferredImageType[lowerName.split(".").at(-1)||""]||"application/octet-stream";
+  const reportedType=file.type.toLowerCase();
+  const mimeType=(reportedType!=="application/octet-stream"?reportedType:"")||inferredImageType[lowerName.split(".").at(-1)||""]||"application/octet-stream";
   const isImage=mimeType.startsWith("image/");
   const isPdf=file.type==="application/pdf"||lowerName.endsWith(".pdf");
   const isText=file.type.startsWith("text/")||/\.(txt|md|csv)$/i.test(file.name);
 
+  if(file.size===0)throw new Error("The selected file is empty. Wait for it to finish downloading from your photo library and select it again.");
   if(isImage&&!SUPPORTED_IMAGE_TYPES.has(mimeType))throw new Error("Use a JPG, PNG, WEBP, GIF, HEIC, or HEIF photo.");
   if(isImage&&file.size>MAX_PHONE_IMAGE_BYTES)throw new Error("Photos up to 50 MB are supported. This file exceeds 50 MB; export a smaller copy.");
   if(isPdf&&file.size>MAX_PDF_BYTES)throw new Error("PDFs must be 15 MB or smaller.");
   if(isText&&file.size>MAX_TEXT_BYTES)throw new Error("Text files must be 5 MB or smaller.");
   if(!isImage&&!isPdf&&!isText)throw new Error("Use a JPG, PNG, WEBP, GIF, PDF, TXT, MD, or CSV file.");
 
-  const bytes = await file.arrayBuffer();
-  const fileHash = await sha256(bytes);
+  onProgress?.(isImage?"Optimizing photo…":"Preparing document…");
+  const fileHash = await sha256(await file.arrayBuffer());
 
   const base = {
     id: crypto.randomUUID(),
@@ -67,13 +69,11 @@ export async function prepareAttachment(
     byte_size: file.size,
     sha256: fileHash,
     prepared_at: new Date().toISOString(),
-    original_blob: new Blob([bytes], {
-      type: mimeType,
-    }),
+    original_blob: file,
   };
 
   if (isImage) {
-    const analysisImage=await preparePhoneImage(file);
+    const analysisImage=await preparePhoneImage(file,imageBudget);
     return {
       ...base,
       kind: "image",
@@ -84,6 +84,7 @@ export async function prepareAttachment(
     };
   }
 
+  const bytes=await file.arrayBuffer();
   if (
     isPdf
   ) {

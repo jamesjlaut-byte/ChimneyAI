@@ -14,10 +14,12 @@ const COMPONENT_CATEGORIES:Record<string,PhotoCategory>={
 
 export function defaultPhotoCategory(component:string):PhotoCategory{return COMPONENT_CATEGORIES[component]||"other"}
 
-export function validateInspectionPhoto(file:{size:number;type:string}):string|null{
+export function validateInspectionPhoto(file:{size:number;type:string;name?:string}):string|null{
   if(file.size<=0)return "The selected photo is empty.";
   if(file.size>MAX_INSPECTION_PHOTO_BYTES)return "Inspection photos up to 50 MB are supported. Export a smaller copy of this file.";
-  if(!INSPECTION_PHOTO_TYPES.has(file.type.toLowerCase()))return "Use a JPEG, PNG, WebP, HEIC, or HEIF inspection photo.";
+  const type=file.type.toLowerCase();
+  const inferred=(!type||type==="application/octet-stream")&&/\.(jpe?g|png|webp|hei[cf])$/i.test(file.name||"");
+  if(!INSPECTION_PHOTO_TYPES.has(type)&&!inferred)return "Use a JPEG, PNG, WebP, HEIC, or HEIF inspection photo.";
   return null;
 }
 

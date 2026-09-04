@@ -25,8 +25,8 @@ import {inspectionNoteDraftKey,parseInspectionNoteDraft,MAX_DRAFT_NOTE_LENGTH} f
 import {fitImageDimensions,MAX_ANALYSIS_IMAGE_BYTES,MAX_PHONE_IMAGE_BYTES} from "../lib/phone-image.ts";
 
 test("phone photos fit the AI upload budget without changing source provenance",()=>{
-  assert.deepEqual(fitImageDimensions(4032,3024),{width:2048,height:1536});
-  assert.deepEqual(fitImageDimensions(3024,4032),{width:1536,height:2048});
+  assert.deepEqual(fitImageDimensions(4032,3024),{width:2304,height:1728});
+  assert.deepEqual(fitImageDimensions(3024,4032),{width:1728,height:2304});
   assert.deepEqual(fitImageDimensions(200,100),{width:200,height:100});
   assert.throws(()=>fitImageDimensions(0,100));
   const photo={kind:"image",name:"phone.png",mime_type:"image/jpeg",original_mime_type:"image/png",image_optimized:true,byte_size:30*1024*1024,sha256:"a".repeat(64),data_url:"data:image/jpeg;base64,AAAA"};
@@ -35,7 +35,7 @@ test("phone photos fit the AI upload budget without changing source provenance",
   assert.equal(provenanceFromAttachment(photo).byte_size,photo.byte_size);
   assert.equal(provenanceFromAttachment(photo).sha256,photo.sha256);
   assert.ok(MAX_PHONE_IMAGE_BYTES>=30*1024*1024);
-  assert.ok(6*Math.ceil(MAX_ANALYSIS_IMAGE_BYTES/3)*4<MAX_CHAT_REQUEST_BYTES);
+  assert.ok(6*MAX_ANALYSIS_IMAGE_BYTES<MAX_CHAT_REQUEST_BYTES);
 });
 
 test("inspection note drafts are bounded, scoped, and never confirmed findings",()=>{

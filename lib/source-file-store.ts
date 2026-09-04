@@ -11,6 +11,7 @@ export type StoredSourceFile={
   byte_size:number;
   saved_at:string;
   blob:Blob;
+  preview_blob?:Blob;
 };
 
 function openDb():Promise<IDBDatabase>{

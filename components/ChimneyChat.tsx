@@ -19,6 +19,8 @@ import {defaultSourceRole} from "@/lib/default-source-role";
 import {markLastAttemptFailed,modelHistory,type ChatHistoryMessage} from "@/lib/chat-history";
 import {clearProDraft,isMeaningfulProDraft,loadProDraft,saveProDraft} from "@/lib/pro-draft";
 import {MAX_CASE_SOURCES} from "@/lib/case-limits";
+import {encodeChatUpload} from "@/lib/chat-upload";
+import {MAX_IMAGE_BATCH_BYTES} from "@/lib/phone-image";
 
 const InspectionSetup=dynamic(()=>import("@/components/InspectionSetup"),{ssr:false});
 
@@ -123,8 +125,19 @@ export default function ChimneyChat({mode}:{mode:Mode}){
     try{
     setAttachmentStatus(`Preparing ${Math.min(selected.length,available)} attachment${Math.min(selected.length,available)===1?"":"s"}…`);
     const next=[...attachments],errors:string[]=[];
+    const imageCount=attachments.filter(a=>a.kind==="image").length+selected.slice(0,available).filter(f=>f.type.startsWith("image/")||/\.(jpe?g|png|webp|gif|hei[cf])$/i.test(f.name)).length;
+    const imageBudget=Math.floor(MAX_IMAGE_BATCH_BYTES/Math.max(1,imageCount));
+    // Rebalance previously attached viewing copies only when the batch grows.
+    // Always re-encode from the original, never repeatedly compress a derivative.
+    for(let i=0;i<next.length;i++){
+      const a=next[i];
+      if(a.kind==="image"&&a.original_blob&&(a.data_url?.length||0)*0.75>imageBudget){
+        const resized=await prepareAttachment(new File([a.original_blob],a.name,{type:a.original_mime_type||a.mime_type}),setAttachmentStatus,imageBudget);
+        next[i]={...resized,id:a.id};
+      }
+    }
     for(const f of selected.slice(0,available)){
-      try{next.push(await prepareAttachment(f))}
+      try{next.push(await prepareAttachment(f,message=>setAttachmentStatus(`${message} ${f.name}`),imageBudget))}
       catch(e){errors.push(`${f.name}: ${e instanceof Error?e.message:"Could not prepare file."}`)}
     }
     if(selected.length>available)errors.push(`${selected.length-available} file${selected.length-available===1?" was":"s were"} skipped (active limit 6; case source limit ${MAX_CASE_SOURCES}).`);
@@ -146,7 +159,8 @@ export default function ChimneyChat({mode}:{mode:Mode}){
     const readyMessage=`${added} attachment${added===1?"":"s"} ready${mode==="pro"&&added?" and recorded in the case manifest":""}.${prepared.some(a=>a.image_optimized)?" Photos resized for AI review; originals retained in this session. Use close-ups for fine details.":""}`;
     setAttachmentStatus(errors.length?`${added?`${readyMessage} `:""}${errors.join(" ")}`:readyMessage);
     if(inputRef.current)inputRef.current.value="";
-    }finally{setPreparing(false)}
+    }catch(error){setAttachmentStatus(error instanceof Error?error.message:"Could not prepare photos. Your existing attachments are unchanged.")}
+    finally{setPreparing(false)}
   }
 
   async function send(value=text){
@@ -154,7 +168,10 @@ export default function ChimneyChat({mode}:{mode:Mode}){
     const userText=cleaned||`Please review the attached ${attachments.length===1?"file":"files"}.`;
     const next=[...messages,{role:"user" as const,content:userText}],currentAttachments=attachments;
     const requestMessages=modelHistory(next);
-    const requestBody=JSON.stringify({
+    setPreparing(true);
+    setAttachmentStatus("Preparing upload…");
+    let requestBody:Awaited<ReturnType<typeof encodeChatUpload>>;
+    try{requestBody=await encodeChatUpload({
       mode,messages:requestMessages,
       attachments:currentAttachments.map(({original_blob,...a})=>a),
       source_manifest:mode==="pro"?sourceFiles.map(({
@@ -162,16 +179,14 @@ export default function ChimneyChat({mode}:{mode:Mode}){
       })=>({file_name,mime_type,byte_size,sha256,page_count,text_truncated,role,note,storage_status,integrity_status})):undefined,
       pro_source:mode==="pro"?proSource:undefined,
       manual_verification:mode==="pro"?manualVerification:undefined
-    });
-    if(new Blob([requestBody]).size>4_000_000){
-      setAttachmentStatus("This combined request is too large for production upload. Remove one or more photos, or send them separately.");
-      return;
-    }
-    setMessages(next);setText("");setBusy(true);setAttachmentStatus("");
+    })}catch(error){setAttachmentStatus(error instanceof Error?error.message:"Could not prepare this upload.");return}
+    finally{setPreparing(false)}
+    setMessages(next);setText("");setBusy(true);setAttachmentStatus("Uploading photos and question…");
     const controller=new AbortController(),requestId=++nextRequestId.current;
     requestRef.current={id:requestId,controller};
     try{
-      const res=await fetch("/api/chat",{method:"POST",headers:{"content-type":"application/json"},body:requestBody,signal:controller.signal});
+      const res=await fetch("/api/chat",{method:"POST",headers:{"content-type":requestBody.contentType},body:requestBody.body,signal:controller.signal});
+      setAttachmentStatus("");
       const body:{ok?:boolean;error?:string;text?:string}=await res.json().catch(()=>({}));
       if(requestRef.current?.id!==requestId)return;
       if(!res.ok||!body.ok){
@@ -184,6 +199,10 @@ export default function ChimneyChat({mode}:{mode:Mode}){
               ?"ChimneyAI's AI service is temporarily busy. Your question and attachments are preserved—wait a moment and try again."
               :body.error==="request_rate_limited"
                 ?"Too many questions were submitted from this connection in a short time. Your question and attachments are preserved—wait about a minute and try again."
+              :res.status===413
+                ?"The server rejected the combined upload size. Your photos are preserved. Try a smaller batch; you do not need to resize the originals."
+              :body.error==="invalid_request"
+                ?"The server could not read this upload. Your photos are preserved. Retry, or select the photo again if the problem continues."
               :"I couldn't complete that request. Your attachments are still available—please try again.";
         setMessages([...markLastAttemptFailed(next),{role:"assistant",kind:"system_error",content:errorMessage}]);
         return;
@@ -192,6 +211,7 @@ export default function ChimneyChat({mode}:{mode:Mode}){
       if(currentAttachments.length)setAttachmentStatus(`${currentAttachments.length} active source attachment${currentAttachments.length===1?" remains":"s remain"} available for follow-up questions.`);
     }catch{
       if(controller.signal.aborted||requestRef.current?.id!==requestId)return;
+      setAttachmentStatus("");
       setText(current=>current||cleaned);
       setMessages([...markLastAttemptFailed(next),{role:"assistant",kind:"system_error",content:"ChimneyAI could not reach the service. Your attachments are still available—check your connection and try again."}]);
     }finally{
@@ -234,7 +254,9 @@ export default function ChimneyChat({mode}:{mode:Mode}){
     <div className="messages" role="log" aria-label="ChimneyAI conversation" aria-live="polite" aria-relevant="additions text" aria-busy={busy}>{messages.map((m,i)=><div key={i} className={`message ${m.role}`}><div className="messageRole">{m.role==="user"?"You":"ChimneyAI"}</div>{mode==="pro"&&m.role==="assistant"&&m.kind!=="system_error"&&<div className="professionalReviewFlag">AI analysis · technician review required</div>}<div className="messageText">{m.role==="assistant"&&m.kind!=="system_error"?<MessageContent content={m.content}/>:m.content}</div></div>)}
       {busy&&<div className="message assistant"><div className="messageRole">ChimneyAI</div>{mode==="pro"&&<div className="professionalReviewFlag">Building evidence-aware analysis</div>}<div className="typing">Analyzing…</div></div>}</div>
     <div className="composer">
-      {attachments.length>0&&<div className="attachmentTray">{attachments.map((a,i)=><div className="attachmentChip" key={`${a.name}-${i}`}><span>{a.kind==="image"?"PHOTO":"DOC"} · {a.name}{a.page_count?` · ${a.page_count} pages`:""}{a.text_truncated?" · partial text":""} · {a.sha256.slice(0,10)}…</span><button type="button" aria-label={`Remove ${a.name}`} disabled={busy||preparing} onClick={()=>setAttachments(attachments.filter((_,x)=>x!==i))}>×</button></div>)}</div>}
+      {attachments.length>0&&<div className="attachmentTray">{attachments.map((a,i)=><div className="attachmentChip" key={`${a.name}-${i}`}>
+        {a.kind==="image"&&a.data_url&&<Image src={a.data_url} alt={`Prepared photo: ${a.name}`} width={88} height={66} style={{objectFit:"contain",flexShrink:0}} unoptimized/>}
+        <span>{a.kind==="image"?"PHOTO":"DOC"} · {a.name}{a.page_count?` · ${a.page_count} pages`:""}{a.text_truncated?" · partial text":""} · {a.sha256.slice(0,10)}…</span><button type="button" aria-label={`Remove ${a.name}`} disabled={busy||preparing} onClick={()=>setAttachments(attachments.filter((_,x)=>x!==i))}>×</button></div>)}</div>}
       {attachmentStatus&&<div className="attachmentStatus" role="status" aria-live="polite">{attachmentStatus}</div>}
       {mode==="pro"&&attachments.some(a=>a.kind==="image")&&<div className="quickActions">
         <button type="button" onClick={()=>{setProSource({...proSource,task:"label_scan",source_type:"listing_label",source_status:"uploaded"});setText("Read this label carefully. Extract only legible manufacturer, model, serial, listing/standard markings, fuel/appliance information, and other visible installation data. Identify uncertain characters and tell me exactly what source/manual is needed next.");}}>Treat photo as label scan</button>

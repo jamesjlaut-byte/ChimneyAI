@@ -21,7 +21,7 @@ const Attachment=z.discriminatedUnion("kind",[
     original_mime_type:z.enum(["image/jpeg","image/png","image/webp","image/gif","image/heic","image/heif"]).optional(),
     image_optimized:z.boolean().optional(),
     mime_type:z.enum(["image/jpeg","image/png","image/webp","image/gif"]),
-    data_url:z.string().max(MAX_CHAT_REQUEST_BYTES).regex(/^data:image\/(?:jpeg|png|webp|gif);base64,(?=[a-z0-9+/])(?:[a-z0-9+/]{4})*(?:[a-z0-9+/]{2}==|[a-z0-9+/]{3}=)?$/i)
+    data_url:z.string().max(4_400_100).regex(/^data:image\/(?:jpeg|png|webp|gif);base64,(?=[a-z0-9+/])(?:[a-z0-9+/]{4})*(?:[a-z0-9+/]{2}==|[a-z0-9+/]{3}=)?$/i)
   }).strict(),
   z.object({
     ...AttachmentMetadata,

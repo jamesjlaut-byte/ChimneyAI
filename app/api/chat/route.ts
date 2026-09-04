@@ -6,6 +6,7 @@ import {proSourceInstruction} from "@/lib/pro-source";
 import {modelsConflict} from "@/lib/model-identity";
 import {checkChatRateLimit} from "@/lib/request-rate-limit";
 import {fieldContextInstruction} from "@/lib/chat-context";
+import {decodeChatUpload} from "@/lib/chat-upload";
 
 export async function POST(req:Request){
   const announcedSize=Number(req.headers.get("content-length"));
@@ -19,16 +20,12 @@ export async function POST(req:Request){
       headers:{"Retry-After":String(rateLimit.retryAfter),"Cache-Control":"no-store"}
     });
   }
-  let rawBody:string;
   let requestBody:unknown;
   try{
-    rawBody=await req.text();
-    if(new TextEncoder().encode(rawBody).byteLength>MAX_CHAT_REQUEST_BYTES){
-      return Response.json({ok:false,error:"payload_too_large"},{status:413});
-    }
-    requestBody=JSON.parse(rawBody);
-  }catch{
-    return Response.json({ok:false,error:"invalid_json"},{status:400});
+    requestBody=await decodeChatUpload(req);
+  }catch(error){
+    const tooLarge=error instanceof Error&&error.message==="payload_too_large";
+    return Response.json({ok:false,error:tooLarge?"payload_too_large":"invalid_request"},{status:tooLarge?413:400});
   }
   const parsed=parseChatRequest(requestBody);
   if(!parsed.success)return Response.json({ok:false,error:"invalid_request"},{status:400});
