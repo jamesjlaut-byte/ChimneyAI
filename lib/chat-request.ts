@@ -7,7 +7,7 @@ export const MAX_CHAT_REQUEST_BYTES=4_000_000;
 const AttachmentMetadata={
   name:z.string().max(240),
   id:z.string().max(100).optional(),
-  byte_size:z.number().int().nonnegative().max(15*1024*1024).optional(),
+  byte_size:z.number().int().nonnegative().max(50*1024*1024).optional(),
   sha256:z.string().regex(/^[a-f0-9]{64}$/i).optional(),
   prepared_at:z.string().datetime().optional(),
   page_count:z.number().int().positive().max(100_000).optional(),
@@ -18,6 +18,8 @@ const Attachment=z.discriminatedUnion("kind",[
   z.object({
     ...AttachmentMetadata,
     kind:z.literal("image"),
+    original_mime_type:z.enum(["image/jpeg","image/png","image/webp","image/gif","image/heic","image/heif"]).optional(),
+    image_optimized:z.boolean().optional(),
     mime_type:z.enum(["image/jpeg","image/png","image/webp","image/gif"]),
     data_url:z.string().max(MAX_CHAT_REQUEST_BYTES).regex(/^data:image\/(?:jpeg|png|webp|gif);base64,(?=[a-z0-9+/])(?:[a-z0-9+/]{4})*(?:[a-z0-9+/]{2}==|[a-z0-9+/]{3}=)?$/i)
   }).strict(),

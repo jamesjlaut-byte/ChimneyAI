@@ -24,7 +24,7 @@ export function provenanceFromAttachment(
   return {
     attachment_id:a.id,
     file_name:a.name,
-    mime_type:a.mime_type,
+    mime_type:a.original_mime_type||a.mime_type,
     byte_size:a.byte_size,
     sha256:a.sha256,
     prepared_at:a.prepared_at,

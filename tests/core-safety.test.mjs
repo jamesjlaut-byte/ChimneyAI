@@ -22,6 +22,21 @@ import {canTransitionInspectionStatus,normalizeInspection,parseInspections,seria
 import {firstIncompleteChecklistIndex,getInspectionChecklist,missingChecklistItems} from "../lib/inspection-checklists.ts";
 import {defaultPhotoCategory,MAX_INSPECTION_PHOTO_BYTES,recommendedPhotoGaps,validateInspectionPhoto} from "../lib/inspection-photo.ts";
 import {inspectionNoteDraftKey,parseInspectionNoteDraft,MAX_DRAFT_NOTE_LENGTH} from "../lib/inspection-note-draft.ts";
+import {fitImageDimensions,MAX_ANALYSIS_IMAGE_BYTES,MAX_PHONE_IMAGE_BYTES} from "../lib/phone-image.ts";
+
+test("phone photos fit the AI upload budget without changing source provenance",()=>{
+  assert.deepEqual(fitImageDimensions(4032,3024),{width:2048,height:1536});
+  assert.deepEqual(fitImageDimensions(3024,4032),{width:1536,height:2048});
+  assert.deepEqual(fitImageDimensions(200,100),{width:200,height:100});
+  assert.throws(()=>fitImageDimensions(0,100));
+  const photo={kind:"image",name:"phone.png",mime_type:"image/jpeg",original_mime_type:"image/png",image_optimized:true,byte_size:30*1024*1024,sha256:"a".repeat(64),data_url:"data:image/jpeg;base64,AAAA"};
+  assert.equal(parseChatRequest({mode:"pro",messages:[{role:"user",content:"Review"}],attachments:[photo]}).success,true);
+  assert.equal(provenanceFromAttachment(photo).mime_type,"image/png");
+  assert.equal(provenanceFromAttachment(photo).byte_size,photo.byte_size);
+  assert.equal(provenanceFromAttachment(photo).sha256,photo.sha256);
+  assert.ok(MAX_PHONE_IMAGE_BYTES>=30*1024*1024);
+  assert.ok(6*Math.ceil(MAX_ANALYSIS_IMAGE_BYTES/3)*4<MAX_CHAT_REQUEST_BYTES);
+});
 
 test("inspection note drafts are bounded, scoped, and never confirmed findings",()=>{
   const draft={version:1,inspectionId:"inspection-a",systemId:"system-a",component:"firebox",base:"baseline",note:"Unconfirmed field note"};
@@ -41,7 +56,7 @@ test("inspection photos use conservative component categories and file limits",(
   assert.equal(defaultPhotoCategory("unknown_component"),"other");
   assert.equal(validateInspectionPhoto({size:1024,type:"image/jpeg"}),null);
   assert.match(validateInspectionPhoto({size:0,type:"image/jpeg"}),/empty/);
-  assert.match(validateInspectionPhoto({size:MAX_INSPECTION_PHOTO_BYTES+1,type:"image/png"}),/20 MB/);
+  assert.match(validateInspectionPhoto({size:MAX_INSPECTION_PHOTO_BYTES+1,type:"image/png"}),/50 MB/);
   assert.match(validateInspectionPhoto({size:1024,type:"image/svg+xml"}),/JPEG/);
   const checklist=[{id:"firebox",label:"Firebox",photoRecommended:true},{id:"doors",label:"Doors",photoRecommended:false},{id:"flue",label:"Flue",photoRecommended:true}];
   const findings=[{id:"finding-firebox",component:"firebox",status:"satisfactory"},{id:"finding-doors",component:"doors",status:"satisfactory"},{id:"finding-flue",component:"flue",status:"unable_to_inspect"}];

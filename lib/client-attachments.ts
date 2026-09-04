@@ -1,4 +1,5 @@
 import {finalizeExtractedText,MAX_EXTRACTED_TEXT_CHARS} from "./attachment-text";
+import {MAX_PHONE_IMAGE_BYTES,preparePhoneImage} from "./phone-image";
 
 export type ChatAttachment = {
   id: string;
@@ -13,12 +14,13 @@ export type ChatAttachment = {
   page_count?: number;
   text_truncated?: boolean;
   original_blob?: Blob;
+  original_mime_type?: string;
+  image_optimized?: boolean;
 };
 
-const MAX_IMAGE_BYTES=3*1024*1024;
 const MAX_PDF_BYTES=15*1024*1024;
 const MAX_TEXT_BYTES=5*1024*1024;
-const SUPPORTED_IMAGE_TYPES=new Set(["image/jpeg","image/png","image/webp","image/gif"]);
+const SUPPORTED_IMAGE_TYPES=new Set(["image/jpeg","image/png","image/webp","image/gif","image/heic","image/heif"]);
 
 async function sha256(buffer: ArrayBuffer) {
   const digest = await crypto.subtle.digest("SHA-256", buffer);
@@ -28,7 +30,7 @@ async function sha256(buffer: ArrayBuffer) {
     .join("");
 }
 
-function readDataUrl(file: File) {
+function readDataUrl(file: Blob) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
 
@@ -43,12 +45,14 @@ export async function prepareAttachment(
   file: File
 ): Promise<ChatAttachment> {
   const lowerName=file.name.toLowerCase();
-  const isImage=file.type.startsWith("image/");
+  const inferredImageType:Record<string,string>={jpg:"image/jpeg",jpeg:"image/jpeg",png:"image/png",webp:"image/webp",gif:"image/gif",heic:"image/heic",heif:"image/heif"};
+  const mimeType=file.type.toLowerCase()||inferredImageType[lowerName.split(".").at(-1)||""]||"application/octet-stream";
+  const isImage=mimeType.startsWith("image/");
   const isPdf=file.type==="application/pdf"||lowerName.endsWith(".pdf");
   const isText=file.type.startsWith("text/")||/\.(txt|md|csv)$/i.test(file.name);
 
-  if(isImage&&!SUPPORTED_IMAGE_TYPES.has(file.type))throw new Error("Use a JPG, PNG, WEBP, or non-animated GIF image.");
-  if(isImage&&file.size>MAX_IMAGE_BYTES)throw new Error("Images must be 3 MB or smaller for reliable production upload.");
+  if(isImage&&!SUPPORTED_IMAGE_TYPES.has(mimeType))throw new Error("Use a JPG, PNG, WEBP, GIF, HEIC, or HEIF photo.");
+  if(isImage&&file.size>MAX_PHONE_IMAGE_BYTES)throw new Error("Photos up to 50 MB are supported. This file exceeds 50 MB; export a smaller copy.");
   if(isPdf&&file.size>MAX_PDF_BYTES)throw new Error("PDFs must be 15 MB or smaller.");
   if(isText&&file.size>MAX_TEXT_BYTES)throw new Error("Text files must be 5 MB or smaller.");
   if(!isImage&&!isPdf&&!isText)throw new Error("Use a JPG, PNG, WEBP, GIF, PDF, TXT, MD, or CSV file.");
@@ -59,20 +63,24 @@ export async function prepareAttachment(
   const base = {
     id: crypto.randomUUID(),
     name: file.name,
-    mime_type: file.type || "application/octet-stream",
+    mime_type: mimeType,
     byte_size: file.size,
     sha256: fileHash,
     prepared_at: new Date().toISOString(),
     original_blob: new Blob([bytes], {
-      type: file.type || "application/octet-stream",
+      type: mimeType,
     }),
   };
 
   if (isImage) {
+    const analysisImage=await preparePhoneImage(file);
     return {
       ...base,
       kind: "image",
-      data_url: await readDataUrl(file),
+      mime_type:"image/jpeg",
+      original_mime_type:mimeType,
+      image_optimized:true,
+      data_url: await readDataUrl(analysisImage),
     };
   }
 

@@ -92,7 +92,9 @@ export async function verifyStoredSourceFile(sha256:string){
 
 export async function persistAttachmentBytes(a:ChatAttachment){
   let blob:Blob;
-  if(a.kind==="image"&&a.data_url){
+  if(a.original_blob){
+    blob=a.original_blob;
+  }else if(a.kind==="image"&&a.data_url&&!a.image_optimized){
     const response=await fetch(a.data_url);
     blob=await response.blob();
   }else{
@@ -104,7 +106,7 @@ export async function persistAttachmentBytes(a:ChatAttachment){
   await putStoredSourceFile({
     sha256:a.sha256,
     name:a.name,
-    mime_type:a.mime_type,
+    mime_type:a.original_mime_type||a.mime_type,
     byte_size:a.byte_size,
     saved_at:new Date().toISOString(),
     blob

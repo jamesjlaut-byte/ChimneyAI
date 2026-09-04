@@ -27,7 +27,7 @@ const starterHomeowner=["Explain this inspection report to me.","What does this 
 const starterPro=["Help me write objective report language.","Check a fireplace opening-to-flue ratio.","Second-look these inspection photos.","Help me structure a manufacturer-manual verification."];
 
 export default function ChimneyChat({mode}:{mode:Mode}){
-  const [messages,setMessages]=useState<Msg[]>([]),[text,setText]=useState(""),[busy,setBusy]=useState(false);
+  const [messages,setMessages]=useState<Msg[]>([]),[text,setText]=useState(""),[busy,setBusy]=useState(false),[preparing,setPreparing]=useState(false);
   const [attachments,setAttachments]=useState<ChatAttachment[]>([]),[attachmentStatus,setAttachmentStatus]=useState("");
   const [proSource,setProSource]=useState<ProSourceState>(EMPTY_PRO_SOURCE);
   const [manualVerification,setManualVerification]=useState<ManualVerification>(EMPTY_MANUAL);
@@ -109,7 +109,7 @@ export default function ChimneyChat({mode}:{mode:Mode}){
   },[attachments,sourceFiles,proSource,manualVerification]);
 
   async function addFiles(files:FileList|null){
-    if(!files||busy)return;
+    if(!files||busy||preparing)return;
     const selected=Array.from(files),attachmentSlots=6-attachments.length;
     const sourceSlots=mode==="pro"?MAX_CASE_SOURCES-sourceFiles.length:attachmentSlots;
     const available=Math.min(attachmentSlots,sourceSlots),sourceContext=proSource;
@@ -119,6 +119,8 @@ export default function ChimneyChat({mode}:{mode:Mode}){
         :`This case has reached ${MAX_CASE_SOURCES} source fingerprint records. Save/export it and begin a new case before adding new evidence.`);
       return;
     }
+    setPreparing(true);
+    try{
     setAttachmentStatus(`Preparing ${Math.min(selected.length,available)} attachment${Math.min(selected.length,available)===1?"":"s"}…`);
     const next=[...attachments],errors:string[]=[];
     for(const f of selected.slice(0,available)){
@@ -141,13 +143,14 @@ export default function ChimneyChat({mode}:{mode:Mode}){
         return records.length?[...current,...records]:current;
       });
     }
-    const readyMessage=`${added} attachment${added===1?"":"s"} ready${mode==="pro"&&added?" and recorded in the case manifest":""}.`;
+    const readyMessage=`${added} attachment${added===1?"":"s"} ready${mode==="pro"&&added?" and recorded in the case manifest":""}.${prepared.some(a=>a.image_optimized)?" Photos resized for AI review; originals retained in this session. Use close-ups for fine details.":""}`;
     setAttachmentStatus(errors.length?`${added?`${readyMessage} `:""}${errors.join(" ")}`:readyMessage);
     if(inputRef.current)inputRef.current.value="";
+    }finally{setPreparing(false)}
   }
 
   async function send(value=text){
-    const cleaned=value.trim();if((!cleaned&&attachments.length===0)||busy)return;
+    const cleaned=value.trim();if((!cleaned&&attachments.length===0)||busy||preparing)return;
     const userText=cleaned||`Please review the attached ${attachments.length===1?"file":"files"}.`;
     const next=[...messages,{role:"user" as const,content:userText}],currentAttachments=attachments;
     const requestMessages=modelHistory(next);
@@ -231,7 +234,7 @@ export default function ChimneyChat({mode}:{mode:Mode}){
     <div className="messages" role="log" aria-label="ChimneyAI conversation" aria-live="polite" aria-relevant="additions text" aria-busy={busy}>{messages.map((m,i)=><div key={i} className={`message ${m.role}`}><div className="messageRole">{m.role==="user"?"You":"ChimneyAI"}</div>{mode==="pro"&&m.role==="assistant"&&m.kind!=="system_error"&&<div className="professionalReviewFlag">AI analysis · technician review required</div>}<div className="messageText">{m.role==="assistant"&&m.kind!=="system_error"?<MessageContent content={m.content}/>:m.content}</div></div>)}
       {busy&&<div className="message assistant"><div className="messageRole">ChimneyAI</div>{mode==="pro"&&<div className="professionalReviewFlag">Building evidence-aware analysis</div>}<div className="typing">Analyzing…</div></div>}</div>
     <div className="composer">
-      {attachments.length>0&&<div className="attachmentTray">{attachments.map((a,i)=><div className="attachmentChip" key={`${a.name}-${i}`}><span>{a.kind==="image"?"PHOTO":"DOC"} · {a.name}{a.page_count?` · ${a.page_count} pages`:""}{a.text_truncated?" · partial text":""} · {a.sha256.slice(0,10)}…</span><button type="button" aria-label={`Remove ${a.name}`} disabled={busy} onClick={()=>setAttachments(attachments.filter((_,x)=>x!==i))}>×</button></div>)}</div>}
+      {attachments.length>0&&<div className="attachmentTray">{attachments.map((a,i)=><div className="attachmentChip" key={`${a.name}-${i}`}><span>{a.kind==="image"?"PHOTO":"DOC"} · {a.name}{a.page_count?` · ${a.page_count} pages`:""}{a.text_truncated?" · partial text":""} · {a.sha256.slice(0,10)}…</span><button type="button" aria-label={`Remove ${a.name}`} disabled={busy||preparing} onClick={()=>setAttachments(attachments.filter((_,x)=>x!==i))}>×</button></div>)}</div>}
       {attachmentStatus&&<div className="attachmentStatus" role="status" aria-live="polite">{attachmentStatus}</div>}
       {mode==="pro"&&attachments.some(a=>a.kind==="image")&&<div className="quickActions">
         <button type="button" onClick={()=>{setProSource({...proSource,task:"label_scan",source_type:"listing_label",source_status:"uploaded"});setText("Read this label carefully. Extract only legible manufacturer, model, serial, listing/standard markings, fuel/appliance information, and other visible installation data. Identify uncertain characters and tell me exactly what source/manual is needed next.");}}>Treat photo as label scan</button>
@@ -240,9 +243,9 @@ export default function ChimneyChat({mode}:{mode:Mode}){
       </div>}
       <textarea aria-label={mode==="pro"?"Technical question or field documentation":"Chimney or fireplace question"} value={text} maxLength={20_000} onChange={e=>setText(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey&&!e.nativeEvent.isComposing){e.preventDefault();send();}}}
         placeholder={mode==="pro"?"Ask a technical question, or attach field documentation…":"Ask a question, or attach your report/photo…"} rows={3}/>
-      <div className="composerActions"><button className="attachBtn" type="button" disabled={busy} onClick={()=>inputRef.current?.click()}>＋ Attach</button>
-        <input ref={inputRef} hidden type="file" multiple disabled={busy} accept="image/jpeg,image/png,image/webp,image/gif,.pdf,.txt,.md,.csv" onChange={e=>addFiles(e.target.files)}/>
-        <button className="sendBtn" type="button" onClick={()=>send()} disabled={busy||(!text.trim()&&attachments.length===0)}>Send</button></div>
+      <div className="composerActions"><button className="attachBtn" type="button" disabled={busy||preparing} onClick={()=>inputRef.current?.click()}>＋ Attach</button>
+        <input ref={inputRef} hidden type="file" multiple disabled={busy||preparing} accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,.heic,.heif,.pdf,.txt,.md,.csv" onChange={e=>addFiles(e.target.files)}/>
+        <button className="sendBtn" type="button" onClick={()=>send()} disabled={busy||preparing||(!text.trim()&&attachments.length===0)}>Send</button></div>
       <div className="composerNote">{mode==="pro"?"Active attachments stay with follow-ups until removed. Verify controlling sources and field conditions.":"Active uploads stay with follow-ups until removed. ChimneyAI cannot replace an onsite inspection or issue a safety clearance."}</div>
     </div>
   </div>

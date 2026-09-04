@@ -1,7 +1,8 @@
 import type {PhotoCategory} from "@/lib/inspections";
 import type {InspectionChecklistItem} from "@/lib/inspection-checklists";
+import {MAX_PHONE_IMAGE_BYTES} from "./phone-image.ts";
 
-export const MAX_INSPECTION_PHOTO_BYTES=20*1024*1024;
+export const MAX_INSPECTION_PHOTO_BYTES=MAX_PHONE_IMAGE_BYTES;
 export const INSPECTION_PHOTO_TYPES=new Set(["image/jpeg","image/png","image/webp","image/heic","image/heif"]);
 
 const COMPONENT_CATEGORIES:Record<string,PhotoCategory>={
@@ -15,7 +16,7 @@ export function defaultPhotoCategory(component:string):PhotoCategory{return COMP
 
 export function validateInspectionPhoto(file:{size:number;type:string}):string|null{
   if(file.size<=0)return "The selected photo is empty.";
-  if(file.size>MAX_INSPECTION_PHOTO_BYTES)return "Inspection photos must be 20 MB or smaller.";
+  if(file.size>MAX_INSPECTION_PHOTO_BYTES)return "Inspection photos up to 50 MB are supported. Export a smaller copy of this file.";
   if(!INSPECTION_PHOTO_TYPES.has(file.type.toLowerCase()))return "Use a JPEG, PNG, WebP, HEIC, or HEIF inspection photo.";
   return null;
 }

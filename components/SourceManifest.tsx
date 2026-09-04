@@ -51,7 +51,7 @@ export default function SourceManifest({
     setBusy(a.sha256);setStatus("");
     try{
       await putStoredSourceFile({
-        sha256:a.sha256,name:a.name,mime_type:a.mime_type,byte_size:a.byte_size,
+        sha256:a.sha256,name:a.name,mime_type:a.original_mime_type||a.mime_type,byte_size:a.byte_size,
         saved_at:new Date().toISOString(),blob:a.original_blob
       });
       update(a.sha256,{storage_status:"persisted_browser",persisted_at:new Date().toISOString(),integrity_status:"unchecked"});
@@ -150,7 +150,7 @@ export default function SourceManifest({
         {attachments.map(a=><div className="candidate" key={a.id}>
           <div>
             <span>{a.name}</span>
-            <small>{a.mime_type} · {a.byte_size.toLocaleString()} bytes · SHA-256 {a.sha256.slice(0,16)}…</small>
+            <small>{a.original_mime_type||a.mime_type} · {a.byte_size.toLocaleString()} original bytes · SHA-256 {a.sha256.slice(0,16)}…{a.image_optimized?" · resized AI copy":""}</small>
           </div>
           <div className="candidateButtons">
             <button type="button" disabled={records.some(r=>r.sha256===a.sha256)} onClick={()=>add(a)}>
