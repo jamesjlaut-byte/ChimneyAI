@@ -2,7 +2,7 @@
 import Image from "next/image";
 import dynamic from "next/dynamic";
 import {useCallback,useEffect,useMemo,useRef,useState} from "react";
-import {prepareAttachment,type ChatAttachment} from "@/lib/client-attachments";
+import {filterUniqueOriginalFiles,prepareAttachment,type ChatAttachment} from "@/lib/client-attachments";
 import ProFieldTools from "@/components/ProFieldTools";
 import ProSourceDesk,{EMPTY_PRO_SOURCE,type ProSourceState} from "@/components/ProSourceDesk";
 import ManualFinder from "@/components/ManualFinder";
@@ -22,6 +22,7 @@ import {MAX_CASE_SOURCES} from "@/lib/case-limits";
 import {encodeChatUpload,estimateChatUploadBytes} from "@/lib/chat-upload";
 import {MAX_CHAT_REQUEST_BYTES} from "@/lib/chat-request";
 import {MAX_IMAGE_BATCH_BYTES} from "@/lib/phone-image";
+import {normalizePhotoType} from "@/lib/photo-type";
 
 const InspectionSetup=dynamic(()=>import("@/components/InspectionSetup"),{ssr:false});
 
@@ -122,7 +123,12 @@ export default function ChimneyChat({mode}:{mode:Mode}){
 
   async function addFiles(files:FileList|null){
     if(!files||busy||preparing)return;
-    const selected=Array.from(files),attachmentSlots=6-attachments.length;
+    setPreparing(true);
+    try{
+    setAttachmentStatus("Checking selected photo fingerprints…");
+    const selected=Array.from(files),deduplicated=await filterUniqueOriginalFiles(selected,attachments.map(originalSourceHash));
+    if(!deduplicated.unique.length){setAttachmentStatus("This exact photo is already attached.");return}
+    const attachmentSlots=6-attachments.length;
     const sourceSlots=mode==="pro"?MAX_CASE_SOURCES-sourceFiles.length:attachmentSlots;
     const available=Math.min(attachmentSlots,sourceSlots),sourceContext=proSource;
     if(available<=0){
@@ -131,11 +137,10 @@ export default function ChimneyChat({mode}:{mode:Mode}){
         :`This case has reached ${MAX_CASE_SOURCES} source fingerprint records. Save/export it and begin a new case before adding new evidence.`);
       return;
     }
-    setPreparing(true);
-    try{
-    setAttachmentStatus(`Preparing ${Math.min(selected.length,available)} attachment${Math.min(selected.length,available)===1?"":"s"}…`);
+    const candidates=deduplicated.unique.slice(0,available);
+    setAttachmentStatus(`Preparing ${candidates.length} attachment${candidates.length===1?"":"s"}…`);
     const next=[...attachments],errors:string[]=[];
-    const imageCount=attachments.filter(a=>a.kind==="image").length+selected.slice(0,available).filter(f=>f.type.startsWith("image/")||/\.(jpe?g|png|webp|gif|hei[cf])$/i.test(f.name)).length;
+    const imageCount=attachments.filter(a=>a.kind==="image").length+candidates.filter(({file})=>Boolean(normalizePhotoType(file))).length;
     const imageBudget=Math.floor(MAX_IMAGE_BATCH_BYTES/Math.max(1,imageCount));
     // Rebalance previously attached viewing copies only when the batch grows.
     // Always re-encode from the original, never repeatedly compress a derivative.
@@ -146,11 +151,12 @@ export default function ChimneyChat({mode}:{mode:Mode}){
         next[i]={...resized,id:a.id};
       }
     }
-    for(const f of selected.slice(0,available)){
-      try{next.push(await prepareAttachment(f,message=>setAttachmentStatus(`${message} ${f.name}`),imageBudget))}
+    for(const {file:f,sha256} of candidates){
+      try{next.push(await prepareAttachment(f,message=>setAttachmentStatus(`${message} ${f.name}`),imageBudget,sha256))}
       catch(e){errors.push(`${f.name}: ${e instanceof Error?e.message:"Could not prepare file."}`)}
     }
-    if(selected.length>available)errors.push(`${selected.length-available} file${selected.length-available===1?" was":"s were"} skipped (active limit 6; case source limit ${MAX_CASE_SOURCES}).`);
+    if(deduplicated.duplicates.length)errors.push("This exact photo is already attached.");
+    if(deduplicated.unique.length>available)errors.push(`${deduplicated.unique.length-available} file${deduplicated.unique.length-available===1?" was":"s were"} skipped (active limit 6; case source limit ${MAX_CASE_SOURCES}).`);
     setAttachments(next);
     const added=next.length-attachments.length;
     const prepared=next.slice(attachments.length);
@@ -170,7 +176,7 @@ export default function ChimneyChat({mode}:{mode:Mode}){
     setAttachmentStatus(errors.length?`${added?`${readyMessage} `:""}${errors.join(" ")}`:readyMessage);
     if(inputRef.current)inputRef.current.value="";
     }catch(error){setAttachmentStatus(error instanceof Error?error.message:"Could not prepare photos. Your existing attachments are unchanged.")}
-    finally{setPreparing(false)}
+    finally{setPreparing(false);if(inputRef.current)inputRef.current.value=""}
   }
 
   async function send(value=text){

@@ -1,9 +1,9 @@
 import type {PhotoCategory} from "@/lib/inspections";
 import type {InspectionChecklistItem} from "@/lib/inspection-checklists";
 import {MAX_PHONE_IMAGE_BYTES} from "./phone-image.ts";
+import {normalizePhotoType} from "./photo-type.ts";
 
 export const MAX_INSPECTION_PHOTO_BYTES=MAX_PHONE_IMAGE_BYTES;
-export const INSPECTION_PHOTO_TYPES=new Set(["image/jpeg","image/png","image/webp","image/heic","image/heif"]);
 
 const COMPONENT_CATEGORIES:Record<string,PhotoCategory>={
   appliance_identification:"data_plate",appliance:"appliance",gas_log_set:"appliance",masonry_heater:"appliance",
@@ -17,9 +17,7 @@ export function defaultPhotoCategory(component:string):PhotoCategory{return COMP
 export function validateInspectionPhoto(file:{size:number;type:string;name?:string}):string|null{
   if(file.size<=0)return "The selected photo is empty.";
   if(file.size>MAX_INSPECTION_PHOTO_BYTES)return "Inspection photos up to 50 MB are supported. Export a smaller copy of this file.";
-  const type=file.type.toLowerCase();
-  const inferred=(!type||type==="application/octet-stream")&&/\.(jpe?g|png|webp|hei[cf])$/i.test(file.name||"");
-  if(!INSPECTION_PHOTO_TYPES.has(type)&&!inferred)return "Use a JPEG, PNG, WebP, HEIC, or HEIF inspection photo.";
+  if(!normalizePhotoType(file,{allowGif:false}))return "Use a JPEG, PNG, WebP, HEIC, or HEIF inspection photo.";
   return null;
 }
 

@@ -3,7 +3,8 @@ import {useEffect,useRef,useState,type ChangeEvent} from "react";
 import Image from "next/image";
 import {defaultPhotoCategory,validateInspectionPhoto} from "@/lib/inspection-photo";
 import {loadInspections,normalizeInspection,saveInspections,upsertInspection,type Inspection,type InspectionFinding,type InspectionPhoto,type PhotoCategory} from "@/lib/inspections";
-import {getStoredSourceFile,putStoredSourceFile,sha256Blob} from "@/lib/source-file-store";
+import {getStoredSourceFile,sha256Blob,writeVerifiedSourceFile} from "@/lib/source-file-store";
+import {normalizePhotoType} from "@/lib/photo-type";
 import {preparePhoneImage} from "@/lib/phone-image";
 
 const CATEGORY_OPTIONS:ReadonlyArray<{value:PhotoCategory;label:string}>=[
@@ -36,7 +37,7 @@ export default function InspectionPhotoCapture({inspection,finding,component,lab
       const preview_blob=await preparePhoneImage(file);
       setMessage("Saving photo to this device…");
       const sha256=await sha256Blob(file),now=new Date().toISOString();
-      await putStoredSourceFile({sha256,name:file.name,mime_type:file.type,byte_size:file.size,saved_at:now,blob:file,preview_blob});
+      await writeVerifiedSourceFile({sha256,name:file.name,mime_type:normalizePhotoType(file,{allowGif:false})||file.type,byte_size:file.size,blob:file,preview_blob,preview_verified:true});
       const prior=inspection.photos.find(photo=>photo.system_id===system.id&&photo.source_sha256===sha256);
       const photo:InspectionPhoto=prior?{...prior,category,caption:caption||prior.caption,finding_ids:[...new Set([...prior.finding_ids,finding.id])]}:{id:`photo-${crypto.randomUUID()}`,system_id:system.id,source_sha256:sha256,category,caption,finding_ids:[finding.id],ai_category_suggestion:null,ai_confidence:null,review_state:"not_requested",reviewed_by:null,reviewed_at:null};
       const nextFinding={...finding,photo_ids:[...new Set([...finding.photo_ids,photo.id])],source_sha256:[...new Set([...finding.source_sha256,sha256])],updated_at:now};
@@ -55,7 +56,7 @@ export default function InspectionPhotoCapture({inspection,finding,component,lab
 
   if(!finding)return <div className="inspectionPhotoLocked"><b>Component photos</b><span>Save a technician status first, then attach photos directly to {label.toLowerCase()}.</span></div>;
   return <section className="inspectionPhotos" aria-labelledby={`photos-${component}`}><div className="inspectionPhotoHead"><div><b id={`photos-${component}`}>Component photos</b><span>{photos.length} attached · exact bytes stored in this browser</span></div><button type="button" disabled={busy} onClick={()=>inputRef.current?.click()}>{busy?"Saving…":"Take or add photo"}</button></div>
-    <input ref={inputRef} className="visuallyHidden" type="file" disabled={busy} accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif" onChange={addPhoto}/>
+    <input ref={inputRef} className="visuallyHidden" type="file" disabled={busy} accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/heic-sequence,image/heif-sequence,image/x-heic,image/x-heif,.jpg,.jpeg,.png,.webp,.heic,.heif" onChange={addPhoto}/>
     <div className="inspectionPhotoFields"><label>Category<select value={category} onChange={event=>setCategory(event.target.value as PhotoCategory)}>{CATEGORY_OPTIONS.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}</select></label><label>Caption for next photo<input value={caption} onChange={event=>setCaption(event.target.value)} placeholder={`What this ${label.toLowerCase()} photo documents`} /></label></div>
     {photos.length?<div className="inspectionPhotoList">{photos.map(photo=><PhotoEditor key={photo.id} photo={photo} onSave={updatePhoto}/>)}</div>:null}
     <span className="inspectionPhotoStatus" role="status" aria-live="polite">{message}</span>

@@ -1,7 +1,8 @@
 import {cloudContentTimestamp,normalizeManual,normalizeProSource,normalizeSavedMessages,normalizeSourceFiles,type ProCase} from "@/lib/pro-cases";
 import type {SourceProvenanceRecord} from "@/lib/source-provenance";
 import {getBrowserSupabase,hasSupabaseConfig} from "@/lib/supabase-client";
-import {putStoredSourceFile,verifyStoredSourceFile} from "@/lib/source-file-store";
+import {verifyStoredSourceFile,writeVerifiedSourceFile} from "@/lib/source-file-store";
+import {isAlreadyPresentStorageError} from "@/lib/storage-upload-result";
 
 export type SyncMode="browser_only"|"cloud_ready"|"cloud_connected";
 export type SyncResult={
@@ -98,8 +99,11 @@ async function uploadCaseSource(caseId:string,prepared:PreparedSourceUpload){
     contentType:src.mime_type,
     cacheControl:"3600"
   });
-  if(error && !String(error.message).toLowerCase().includes("already exists"))throw error;
-  return {uploaded:true,path};
+  if(error){
+    if(isAlreadyPresentStorageError(error))return {uploaded:false,already_present:true,path};
+    throw error;
+  }
+  return {uploaded:true,already_present:false,path};
 }
 
 export async function syncCaseToCloud(c:ProCase):Promise<SyncResult>{
@@ -270,12 +274,11 @@ export async function restoreCloudSourceToVault(remoteCaseId:string,sha256:strin
     throw new Error("Downloaded cloud file size does not match its stored source record.");
   }
 
-  await putStoredSourceFile({
+  await writeVerifiedSourceFile({
     sha256:row.sha256,
     name:row.file_name,
     mime_type:row.mime_type,
     byte_size:Number(row.byte_size),
-    saved_at:new Date().toISOString(),
     blob
   });
 

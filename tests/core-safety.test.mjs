@@ -202,6 +202,12 @@ test("chat request validation enforces modes, limits, hashes, and upload types",
   assert.equal(sanitized.success,true);
   if(sanitized.success)assert.equal(sanitized.data.manual_verification?.official_url,"");
   assert.equal(MAX_CHAT_REQUEST_BYTES,4_000_000);
+  const alias=parseChatRequest({...base,attachments:[{
+    kind:"image",name:"phone.heic",mime_type:"image/jpeg",original_mime_type:"image/heic-sequence",
+    image_optimized:true,original_byte_size:10,original_sha256:"a".repeat(64),byte_size:4,sha256:"b".repeat(64),data_url:"data:image/jpeg;base64,AAAA"
+  }]});
+  assert.equal(alias.success,true);
+  if(alias.success)assert.equal(alias.data.attachments?.[0]?.kind==="image"&&alias.data.attachments[0].original_mime_type,"image/heic");
 });
 
 test("document truncation notices stay inside the server text limit",()=>{

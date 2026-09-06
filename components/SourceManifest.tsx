@@ -3,7 +3,7 @@ import {useEffect,useRef,useState} from "react";
 import {prepareAttachment,type ChatAttachment} from "@/lib/client-attachments";
 import type {SourceProvenanceRecord} from "@/lib/source-provenance";
 import {provenanceFromAttachment,originalSourceHash} from "@/lib/source-provenance";
-import {deleteStoredSourceFile,getStoredSourceFile,persistRawFile,putStoredSourceFile,verifyStoredSourceFile} from "@/lib/source-file-store";
+import {deleteStoredSourceFile,getStoredSourceFile,persistAttachmentBytes,persistRawFile,verifyStoredSourceFile} from "@/lib/source-file-store";
 import {defaultSourceRole,type SourceRoleContext} from "@/lib/default-source-role";
 
 export default function SourceManifest({
@@ -50,10 +50,7 @@ export default function SourceManifest({
     if(!a.original_blob){setStatus("Original bytes are not available in this session.");return}
     setBusy(originalSourceHash(a));setStatus("");
     try{
-      await putStoredSourceFile({
-        sha256:originalSourceHash(a),name:a.name,mime_type:a.original_mime_type||a.mime_type,byte_size:a.original_byte_size??a.byte_size,
-        saved_at:new Date().toISOString(),blob:a.original_blob
-      });
+      await persistAttachmentBytes(a);
       update(originalSourceHash(a),{storage_status:"persisted_browser",persisted_at:new Date().toISOString(),integrity_status:"unchecked"});
       setStatus(`Saved exact source bytes for ${a.name} in this browser.`);
     }catch(e:unknown){setStatus(e instanceof Error?e.message:"Could not persist source file.");}

@@ -1,3 +1,5 @@
+import {isHeicPhoto} from "./photo-type.ts";
+
 export const MAX_PHONE_IMAGE_BYTES=50*1024*1024;
 export const MAX_ANALYSIS_IMAGE_BYTES=550_000;
 export const MAX_IMAGE_BATCH_BYTES=3_300_000;
@@ -16,7 +18,7 @@ export async function preparePhoneImage(file:File,maxBytes=MAX_IMAGE_BATCH_BYTES
   const decode=()=>new Promise<void>((resolve,reject)=>{image.onload=()=>resolve();image.onerror=()=>reject(new Error("Photo decoding failed."));image.src=url});
   try{
     try{await decode()}catch{
-      if(!/image\/hei[cf]/i.test(file.type)&&! /\.hei[cf]$/i.test(file.name))throw new Error("This photo could not be decoded. It may be damaged or incompletely downloaded from your photo library. Try selecting it again.");
+      if(!isHeicPhoto(file))throw new Error("This photo could not be decoded. It may be damaged or incompletely downloaded from your photo library. Try selecting it again.");
       try{
         // Lazy-loaded CSP-safe decoder; no external photo service or unsafe-eval.
         const {heicTo}=await import("heic-to/csp");

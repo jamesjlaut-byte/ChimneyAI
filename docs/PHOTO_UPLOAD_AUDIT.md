@@ -2,7 +2,7 @@
 
 ## Status
 
-Implemented locally; NOT a declaration of physical-phone acceptance or successful production deployment. No connected iPhone/Android or live model key was available for this pass.
+The large-photo pipeline through commit `d2ec16d` was deployed successfully. The hardening changes described below are implemented and verified locally, but are NOT a declaration of physical-phone acceptance. No connected iPhone/Android was available for this pass.
 
 ## Original pipeline and rejection points
 
@@ -57,11 +57,22 @@ Restoring the previously persisted 36,592,556-byte PNG from the vault succeeded:
 
 GitHub main was checked read-only and remained at `94b698fae9e692d88046d9db07ec4a0847ee9117`. Local implementation and GitHub publication are separate states. Do not mark the user acceptance test complete until the following checks pass.
 
-1. Deploy approved commits and confirm production serves the new bundle.
+1. Deploy the targeted hardening commit and apply `supabase/migrations/0003_source_bucket_limits.sql` to the hosted Supabase project.
 2. On a real iPhone Safari, test Camera and Photo Library with JPEG and multiple HEIC variants, including portrait/mirrored orientation and iCloud-only photos.
 3. On real Android Chrome, test camera/library JPEGs and batch selection.
 4. Test actual chimney close-ups and labels with a configured model; confirm legibility with a technician. Upload success is not evidence of inspection-analysis accuracy.
 5. Verify hosted Supabase bucket limits/quota and poor-signal sync separately before promising large-original cloud archival.
+
+## Targeted hardening verification — 2026-09-05
+
+- Active and same-selection duplicates are compared by the original SHA-256 before image optimization. A regenerated optimized JPEG from the same original is rejected; different originals remain distinct even if their optimized copies converge.
+- All browser-vault writes now pass through one verified merge path. It hashes the incoming original, checks size, verifies any existing original, preserves stronger metadata and existing previews, accepts a newly verified preview, skips unnecessary identical writes, and serializes default-store writes with Web Locks where supported.
+- Photo type normalization now covers canonical HEIC/HEIF, sequence and `image/x-*` aliases, and empty/octet-stream MIME reports with supported extensions. Unsupported image types and misleading document MIME types remain rejected. GIF remains chat-only, not a guided-inspection photo type.
+- Migration `0003_source_bucket_limits.sql` explicitly configures the private source bucket for 50 MiB originals and the supported source MIME types. This local migration does not prove that the hosted project has applied it.
+- Supabase object-conflict responses now return `already_present` behavior and do not increase `uploaded_sources`.
+- Automated verification: 52 tests passed, including the existing six-photo multipart and 4,000,000-byte request-boundary coverage. ESLint and `next build` passed.
+- Browser verification: the final production build loaded `/pro` in the available Codex in-app browser with meaningful content and no framework error overlay. The available CUA file picker could not inject fixtures, so the previous synthetic 15 MiB/HEIC/six-photo browser transport checks were not repeated through this browser interface. New duplicate, merge, alias, and cloud-conflict behavior was verified through deterministic regression tests.
+- Not tested and not claimed: physical iPhone Safari Camera, Photo Library, HEIC orientation, iCloud-only selection, physical Android Chrome, live hosted Supabase migration state, or a full live-model response.
 
 ## Sources
 

@@ -1,6 +1,7 @@
 import {z} from "zod";
 import {sanitizeManualHttpsUrl} from "./manual-url.ts";
 import {MAX_CASE_SOURCES} from "./case-limits.ts";
+import {SUPPORTED_PHOTO_MIME_TYPES} from "./photo-type.ts";
 
 export const MAX_CHAT_REQUEST_BYTES=4_000_000;
 
@@ -18,7 +19,7 @@ const Attachment=z.discriminatedUnion("kind",[
   z.object({
     ...AttachmentMetadata,
     kind:z.literal("image"),
-    original_mime_type:z.enum(["image/jpeg","image/png","image/webp","image/gif","image/heic","image/heif"]).optional(),
+    original_mime_type:z.enum(SUPPORTED_PHOTO_MIME_TYPES).transform(value=>value.replace(/^image\/x-heic$/,"image/heic").replace(/^image\/x-heif$/,"image/heif").replace(/-sequence$/,"")).optional(),
     image_optimized:z.boolean().optional(),
     original_byte_size:z.number().int().positive().max(50*1024*1024).optional(),
     original_sha256:z.string().regex(/^[a-f0-9]{64}$/i).optional(),

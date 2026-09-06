@@ -14,6 +14,17 @@ export type StoredSourceFile={
   preview_blob?:Blob;
 };
 
+export type VerifiedSourceWrite={
+  sha256:string;
+  name:string;
+  mime_type:string;
+  byte_size:number;
+  blob:Blob;
+  preview_blob?:Blob;
+  preview_verified?:boolean;
+};
+type EvidenceStore={get:(sha256:string)=>Promise<StoredSourceFile|null>;put:(file:StoredSourceFile)=>Promise<void>};
+
 function openDb():Promise<IDBDatabase>{
   return new Promise((resolve,reject)=>{
     const req=indexedDB.open(DB_NAME,DB_VERSION);
@@ -28,7 +39,7 @@ function openDb():Promise<IDBDatabase>{
   });
 }
 
-export async function putStoredSourceFile(file:StoredSourceFile){
+async function putStoredSourceFile(file:StoredSourceFile){
   const db=await openDb();
   await new Promise<void>((resolve,reject)=>{
     const tx=db.transaction(STORE,"readwrite");
@@ -37,6 +48,46 @@ export async function putStoredSourceFile(file:StoredSourceFile){
     tx.onerror=()=>reject(tx.error);
   });
   db.close();
+}
+
+function usefulName(value:string){return Boolean(value.trim())&&!/^(?:source-file|unknown|blob)$/i.test(value.trim())}
+function usefulMime(value:string){return Boolean(value.trim())&&value!=="application/octet-stream"}
+
+const DEFAULT_EVIDENCE_STORE:EvidenceStore={get:getStoredSourceFile,put:putStoredSourceFile};
+
+async function mergeVerifiedSourceFile(incoming:VerifiedSourceWrite,store:EvidenceStore){
+  if(!/^[a-f0-9]{64}$/i.test(incoming.sha256))throw new Error("The target source SHA-256 is invalid.");
+  const targetSha=incoming.sha256.toLowerCase();
+  if(incoming.blob.size!==incoming.byte_size)throw new Error("Incoming source byte size does not match its evidence record.");
+  const computed=await sha256Blob(incoming.blob);
+  if(computed.toLowerCase()!==targetSha)throw new Error("Incoming source bytes do not match the target SHA-256.");
+
+  const existing=await store.get(targetSha);
+  if(existing){
+    if(existing.byte_size!==incoming.byte_size||existing.blob.size!==incoming.byte_size)throw new Error("Existing source evidence conflicts with the verified byte size.");
+    const existingHash=await sha256Blob(existing.blob);
+    if(existingHash.toLowerCase()!==targetSha)throw new Error("Existing source evidence conflicts with the verified SHA-256 and was not replaced.");
+    const preview=incoming.preview_blob&&incoming.preview_verified?incoming.preview_blob:existing.preview_blob;
+    const name=usefulName(existing.name)||!usefulName(incoming.name)?existing.name:incoming.name;
+    const mime_type=usefulMime(existing.mime_type)||!usefulMime(incoming.mime_type)?existing.mime_type:incoming.mime_type;
+    if(preview===existing.preview_blob&&name===existing.name&&mime_type===existing.mime_type)return {status:"already_present" as const,file:existing};
+    const merged={...existing,name,mime_type,preview_blob:preview};
+    await store.put(merged);
+    return {status:"updated" as const,file:merged};
+  }
+
+  const file:StoredSourceFile={
+    sha256:targetSha,name:incoming.name,mime_type:incoming.mime_type,
+    byte_size:incoming.byte_size,saved_at:new Date().toISOString(),blob:incoming.blob,
+    preview_blob:incoming.preview_blob&&incoming.preview_verified?incoming.preview_blob:undefined
+  };
+  await store.put(file);
+  return {status:"created" as const,file};
+}
+
+export async function writeVerifiedSourceFile(incoming:VerifiedSourceWrite,store:EvidenceStore=DEFAULT_EVIDENCE_STORE){
+  if(store!==DEFAULT_EVIDENCE_STORE||typeof navigator==="undefined"||!navigator.locks)return mergeVerifiedSourceFile(incoming,store);
+  return navigator.locks.request(`chimneyai-source:${incoming.sha256.toLowerCase()}`,()=>mergeVerifiedSourceFile(incoming,store));
 }
 
 export async function getStoredSourceFile(sha256:string):Promise<StoredSourceFile|null>{
@@ -104,26 +155,21 @@ export async function persistAttachmentBytes(a:ChatAttachment){
   if(blob.size!==(a.original_byte_size??a.byte_size)){
     throw new Error("Attachment byte size changed before persistence.");
   }
-  await putStoredSourceFile({
+  return writeVerifiedSourceFile({
     sha256:a.original_sha256||a.sha256,
     name:a.name,
     mime_type:a.original_mime_type||a.mime_type,
     byte_size:a.original_byte_size??a.byte_size,
-    saved_at:new Date().toISOString(),
     blob
   });
 }
 
 export async function persistRawFile(file:File,expectedSha256:string){
-  const bytes=await file.arrayBuffer();
-  const computed=await sha256Blob(new Blob([bytes]));
-  if(computed!==expectedSha256)throw new Error("Selected file does not match the recorded SHA-256.");
-  await putStoredSourceFile({
+  return writeVerifiedSourceFile({
     sha256:expectedSha256,
     name:file.name,
     mime_type:file.type||"application/octet-stream",
     byte_size:file.size,
-    saved_at:new Date().toISOString(),
-    blob:new Blob([bytes],{type:file.type||"application/octet-stream"})
+    blob:file
   });
 }
