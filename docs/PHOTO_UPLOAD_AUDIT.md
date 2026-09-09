@@ -120,6 +120,13 @@ GitHub main was checked read-only and remained at `94b698fae9e692d88046d9db07ec4
 - Four regressions cover archived-link preservation, new metadata-only records, confirmed object paths, and the installed Supabase client's actual serialized HTTP request (mocked transport). These are not hosted Postgres/RLS/storage integration tests. Live cloud restore and physical-device acceptance remain outstanding.
 - Changed files: `lib/cloud-source-record.ts`, `lib/workspace-sync.ts`, `tests/cloud-source-record.test.mjs`, and this audit. No UI, prompts, dependencies, or schema changes.
 
+## Complete evidence-record verification — 2026-09-09
+
+- The read-side verifier previously checked only blob SHA-256 against the requested hash. It could report a match despite inconsistent stored byte-size metadata or case manifest size.
+- Verification now checks the original hash, stored hash metadata, stored byte size, and (when supplied) the case manifest's original byte size. Uppercase hash input uses the canonical lowercase vault key. Invalid fingerprints are rejected before opening the vault.
+- Source Manifest Verify and Restore to chat pass the manifest size and show the specific mismatch reason; cloud source preparation applies the same check before updating a case. No original is modified or deleted by verification.
+- Added simulated IndexedDB regression coverage for metadata mismatch, manifest mismatch, valid uppercase fingerprints, missing originals, and same-sized altered bytes. All 70 tests, lint, and production build passed. Physical-device and hosted Supabase acceptance remain separate outstanding checks.
+
 ## Sources
 
 - https://vercel.com/docs/functions/limitations

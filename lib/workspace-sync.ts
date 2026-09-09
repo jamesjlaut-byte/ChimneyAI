@@ -77,10 +77,10 @@ async function requireUser(){
 type PreparedSourceUpload={src:SourceProvenanceRecord;blob:Blob|null};
 
 async function prepareCaseSource(src:SourceProvenanceRecord):Promise<PreparedSourceUpload>{
-  const verification=await verifyStoredSourceFile(src.sha256);
+  const verification=await verifyStoredSourceFile(src.sha256,src.byte_size);
   if(!verification.exists)return {src,blob:null};
   if(!verification.match||!verification.stored){
-    throw new Error(`Source file ${src.file_name} failed SHA-256 verification. Cloud sync stopped before updating the case.`);
+    throw new Error(`Source file ${src.file_name} failed verification: ${verification.reason} Cloud sync stopped before updating the case.`);
   }
   const stored=verification.stored;
   if(stored.blob.size!==src.byte_size){

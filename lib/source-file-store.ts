@@ -139,11 +139,18 @@ export async function sha256Blob(blob:Blob){
   return Array.from(new Uint8Array(digest)).map(x=>x.toString(16).padStart(2,"0")).join("");
 }
 
-export async function verifyStoredSourceFile(sha256:string){
-  const stored=await getStoredSourceFile(sha256);
-  if(!stored)return {exists:false,match:false,computed:null as string|null,stored:null};
+export async function verifyStoredSourceFile(sha256:string,expectedByteSize?:number){
+  const target=sha256.toLowerCase();
+  if(!/^[a-f0-9]{64}$/.test(target))throw new Error("The target source SHA-256 is invalid.");
+  const stored=await getStoredSourceFile(target);
+  if(!stored)return {exists:false,match:false,computed:null as string|null,stored:null,reason:"Stored source file is missing."};
   const computed=await sha256Blob(stored.blob);
-  return {exists:true,match:computed===sha256,computed,stored};
+  const reason=computed!==target?"Stored bytes do not match the recorded SHA-256."
+    :stored.sha256.toLowerCase()!==target?"Stored source fingerprint metadata does not match the requested original."
+    :stored.byte_size!==stored.blob.size?"Stored byte-size metadata does not match the original file."
+    :expectedByteSize!==undefined&&expectedByteSize!==stored.blob.size?"Case manifest byte size does not match the original file."
+    :null;
+  return {exists:true,match:reason===null,computed,stored,reason};
 }
 
 export async function persistAttachmentBytes(a:ChatAttachment){

@@ -60,9 +60,9 @@ export default function SourceManifest({
   async function verify(hash:string){
     setBusy(hash);setStatus("");
     try{
-      const result=await verifyStoredSourceFile(hash);
+      const result=await verifyStoredSourceFile(hash,records.find(r=>r.sha256===hash)?.byte_size);
       update(hash,{integrity_status:!result.exists?"missing":result.match?"verified":"mismatch",storage_status:result.exists?"persisted_browser":"missing"});
-      setStatus(!result.exists?"Stored file is missing.":result.match?"Stored bytes match the recorded SHA-256.":"WARNING: stored bytes do not match the recorded SHA-256.");
+      setStatus(!result.exists?"Stored file is missing.":result.match?"Stored bytes match the recorded SHA-256 and byte size.":`WARNING: ${result.reason}`);
     }catch(e:unknown){setStatus(e instanceof Error?e.message:"Could not verify the stored source file.");}
     finally{setBusy(null)}
   }
@@ -82,7 +82,7 @@ export default function SourceManifest({
   async function attachStoredSource(record:SourceProvenanceRecord){
     setBusy(record.sha256);setStatus("");
     try{
-      const verification=await verifyStoredSourceFile(record.sha256);
+      const verification=await verifyStoredSourceFile(record.sha256,record.byte_size);
       if(!verification.exists){
         update(record.sha256,{storage_status:"missing",integrity_status:"missing"});
         setStatus("Stored source bytes are missing from this browser.");
@@ -90,7 +90,7 @@ export default function SourceManifest({
       }
       if(!verification.match){
         update(record.sha256,{storage_status:"persisted_browser",integrity_status:"mismatch"});
-        setStatus("WARNING: stored bytes do not match the recorded SHA-256 and were not added to chat.");
+        setStatus(`WARNING: ${verification.reason} The source was not added to chat.`);
         return;
       }
       const stored=verification.stored;

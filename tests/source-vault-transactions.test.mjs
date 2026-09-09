@@ -105,6 +105,46 @@ test("guided preview survives actual chat persistence and raw-file restoration",
   harness.assertClosed();
 });
 
+test("verification rejects inconsistent original metadata and case manifest sizes",async t=>{
+  const blob=new Blob(["original evidence"]);
+  const sha256=createHash("sha256").update(Buffer.from(await blob.arrayBuffer())).digest("hex");
+  const stored={sha256,blob,byte_size:blob.size,name:"photo.jpg",mime_type:"image/jpeg",saved_at:"2026-09-09"};
+  const harness=vaultHarness(t,[
+    {result:{...stored,byte_size:blob.size+1}},
+    {result:{...stored,sha256:"b".repeat(64)}},
+    {result:stored},
+    {result:stored,inspect:(_operation,key)=>assert.equal(key,sha256)}
+  ]);
+  const wrongSize=await verifyStoredSourceFile(sha256);
+  assert.equal(wrongSize.match,false);
+  assert.match(wrongSize.reason,/Stored byte-size metadata/);
+  const wrongIdentity=await verifyStoredSourceFile(sha256);
+  assert.equal(wrongIdentity.match,false);
+  assert.match(wrongIdentity.reason,/fingerprint metadata/);
+  const wrongManifest=await verifyStoredSourceFile(sha256,blob.size+1);
+  assert.equal(wrongManifest.match,false);
+  assert.match(wrongManifest.reason,/Case manifest byte size/);
+  const valid=await verifyStoredSourceFile(sha256.toUpperCase(),blob.size);
+  assert.equal(valid.match,true);
+  assert.equal(valid.reason,null);
+  harness.assertClosed();
+});
+
+test("verification distinguishes missing originals from same-sized substituted bytes",async t=>{
+  const original=Buffer.from("original evidence"),altered=Buffer.from(original);altered[0]^=1;
+  const sha256=createHash("sha256").update(original).digest("hex");
+  const harness=vaultHarness(t,[{result:null},{result:{sha256,blob:new Blob([altered]),byte_size:original.length}}]);
+  const missing=await verifyStoredSourceFile(sha256);
+  assert.equal(missing.exists,false);
+  assert.equal(missing.match,false);
+  const changed=await verifyStoredSourceFile(sha256,original.length);
+  assert.equal(changed.exists,true);
+  assert.equal(changed.match,false);
+  assert.match(changed.reason,/bytes do not match/);
+  await assert.rejects(verifyStoredSourceFile("invalid"),/SHA-256 is invalid/);
+  harness.assertClosed();
+});
+
 test("chat rejects substituted originals and optimized-only attachments before any vault access",{timeout:2000},async t=>{
   const original=Buffer.from("original evidence"),altered=Buffer.from(original);altered[0]^=1;
   const sha256=createHash("sha256").update(original).digest("hex");
