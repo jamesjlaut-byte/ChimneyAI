@@ -134,6 +134,14 @@ GitHub main was checked read-only and remained at `94b698fae9e692d88046d9db07ec4
 - Tests cover an unreadable HEIC between two valid files, oversized/empty/unsupported files never being read, the exact 50 MiB acceptance boundary, and uppercase active hashes. All 73 tests, lint, and production build passed. The 50 MiB test exercises original-byte preflight, not camera decoding; simulated file-read failures do not establish physical-iPhone/iCloud acceptance.
 - Changed files: `lib/client-attachments.ts`, `components/ChimneyChat.tsx`, `tests/photo-hardening.test.mjs`, and this audit. No upload limits, image quality settings, safety prompts, dependencies, or layout changed.
 
+## Stalled chat request recovery — 2026-09-09
+
+- Added a 120-second client deadline covering upload, response headers, and response-body reading. Previously a stalled connection could leave the chat busy indefinitely.
+- A timeout aborts the browser request, releases the busy state, restores the submitted question unless the technician has already entered new text, and retains active attachments on the open page. Failed attempts remain excluded from model/report history. There is no automatic retry.
+- Navigation/new-chat cancellation remains distinct from timeout; late responses cannot replace a newer chat. Browser cancellation does not guarantee server-side model processing or billing has stopped. Backgrounded mobile browsers can delay timers; this is not an offline/cloud-backup guarantee.
+- Four deterministic tests cover stalled transports, stalled bodies, timer cleanup after success/failure, cancellation, and late completion. All 77 tests, lint, and production build passed. A physical poor-signal phone test remains outstanding; simulated transport tests are not field acceptance.
+- Changed files: `lib/chat-deadline.ts`, `components/ChimneyChat.tsx`, `tests/chat-deadline.test.mjs`, and this audit. Upload limits, photo quality, model configuration, prompts, and layout are unchanged.
+
 ## Sources
 
 - https://vercel.com/docs/functions/limitations
