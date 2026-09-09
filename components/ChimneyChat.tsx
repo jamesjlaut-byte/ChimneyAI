@@ -276,7 +276,7 @@ export default function ChimneyChat({mode}:{mode:Mode}){
       <textarea aria-label={mode==="pro"?"Technical question or field documentation":"Chimney or fireplace question"} value={text} maxLength={20_000} onChange={e=>setText(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey&&!e.nativeEvent.isComposing){e.preventDefault();send();}}}
         placeholder={mode==="pro"?"Ask a technical question, or attach field documentation…":"Ask a question, or attach your report/photo…"} rows={3}/>
       <div className="composerActions"><button className="attachBtn" type="button" disabled={busy||preparing} onClick={()=>inputRef.current?.click()}>＋ Attach</button>
-        <input ref={inputRef} hidden type="file" multiple disabled={busy||preparing} accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,.heic,.heif,.pdf,.txt,.md,.csv" onChange={e=>addFiles(e.target.files)}/>
+        <input ref={inputRef} hidden type="file" multiple disabled={busy||preparing} accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,image/heic-sequence,image/heif-sequence,image/x-heic,image/x-heif,.jpg,.jpeg,.png,.webp,.gif,.heic,.heif,.pdf,.txt,.md,.csv" onChange={e=>addFiles(e.target.files)}/>
         <button className="sendBtn" type="button" onClick={()=>send()} disabled={busy||preparing||uploadOverBudget||(!text.trim()&&attachments.length===0)}>Send</button></div>
       <div className="composerNote">{mode==="pro"?"Active attachments stay with follow-ups until removed. Verify controlling sources and field conditions.":"Active uploads stay with follow-ups until removed. ChimneyAI cannot replace an onsite inspection or issue a safety clearance."}</div>
     </div>

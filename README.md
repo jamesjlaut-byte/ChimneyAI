@@ -33,7 +33,7 @@ Optional:
 - `NEXT_PUBLIC_SUPABASE_URL` — Supabase project URL for Cloud Workspace
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY` — matching Supabase publishable/anonymous key
 
-The two Supabase variables must be supplied together. Without them, ChimneyAI remains in browser-first mode and local cases, source fingerprints, and the Browser Source File Vault continue to work. Apply the migrations in `supabase/migrations` before enabling cloud cases in production.
+The two Supabase variables must be supplied together. Without them, ChimneyAI remains in browser-first mode and local cases, source fingerprints, and the Browser Source File Vault continue to work. Apply migrations `0001` through `0007` in `supabase/migrations` before enabling cloud cases in production; migration `0007_source_bucket_limits.sql` configures the private source bucket for 50 MiB originals and supported source MIME types.
 
 `GET /api/health` reports `configured` or `degraded` configuration without returning secret values. A missing OpenAI key or a partial Supabase pair produces `degraded`; fully omitted optional Supabase configuration does not. The endpoint confirms environment-variable presence only—provider billing, quota, and request availability are validated by an actual AI request.
 
