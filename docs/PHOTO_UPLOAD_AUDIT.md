@@ -127,6 +127,13 @@ GitHub main was checked read-only and remained at `94b698fae9e692d88046d9db07ec4
 - Source Manifest Verify and Restore to chat pass the manifest size and show the specific mismatch reason; cloud source preparation applies the same check before updating a case. No original is modified or deleted by verification.
 - Added simulated IndexedDB regression coverage for metadata mismatch, manifest mismatch, valid uppercase fingerprints, missing originals, and same-sized altered bytes. All 70 tests, lint, and production build passed. Physical-device and hosted Supabase acceptance remain separate outstanding checks.
 
+## Partial-batch recovery and pre-read limits — 2026-09-09
+
+- The duplicate preflight previously read every selected file before attachment validation; a single unreadable file rejected the entire batch. It now validates type/size before allocating the original-byte buffer and collects per-file errors while continuing with valid originals.
+- Chat shows those specific errors alongside successfully prepared attachments. An entirely invalid selection is no longer mislabeled as a duplicate. Active/same-selection duplicate checks still use original SHA-256; hash casing is normalized.
+- Tests cover an unreadable HEIC between two valid files, oversized/empty/unsupported files never being read, the exact 50 MiB acceptance boundary, and uppercase active hashes. All 73 tests, lint, and production build passed. The 50 MiB test exercises original-byte preflight, not camera decoding; simulated file-read failures do not establish physical-iPhone/iCloud acceptance.
+- Changed files: `lib/client-attachments.ts`, `components/ChimneyChat.tsx`, `tests/photo-hardening.test.mjs`, and this audit. No upload limits, image quality settings, safety prompts, dependencies, or layout changed.
+
 ## Sources
 
 - https://vercel.com/docs/functions/limitations

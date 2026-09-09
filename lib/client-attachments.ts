@@ -32,13 +32,18 @@ export async function sha256(buffer: ArrayBuffer) {
 }
 
 export async function filterUniqueOriginalFiles(files:File[],activeOriginalHashes:Iterable<string>){
-  const seen=new Set(activeOriginalHashes),unique:Array<{file:File;sha256:string}>=[],duplicates:File[]=[];
+  const seen=new Set(Array.from(activeOriginalHashes,hash=>hash.toLowerCase())),unique:Array<{file:File;sha256:string}>=[],duplicates:File[]=[],errors:string[]=[];
   for(const file of files){
-    const hash=await sha256(await file.arrayBuffer());
-    if(seen.has(hash)){duplicates.push(file);continue}
-    seen.add(hash);unique.push({file,sha256:hash});
+    try{
+      validateAttachmentFile(file);
+      let bytes:ArrayBuffer;
+      try{bytes=await file.arrayBuffer()}catch{throw new Error("Could not read this file from your device or photo library. It may not have finished downloading. Try selecting it again.")}
+      const hash=await sha256(bytes);
+      if(seen.has(hash)){duplicates.push(file);continue}
+      seen.add(hash);unique.push({file,sha256:hash});
+    }catch(error){errors.push(`${file.name}: ${error instanceof Error?error.message:"Could not check this file."}`)}
   }
-  return {unique,duplicates};
+  return {unique,duplicates,errors};
 }
 
 function readDataUrl(file: Blob) {
@@ -52,9 +57,7 @@ function readDataUrl(file: Blob) {
   });
 }
 
-export async function prepareAttachment(
-  file: File,onProgress?:(message:string)=>void,imageBudget=MAX_ANALYSIS_IMAGE_BYTES,knownOriginalSha256?:string
-): Promise<ChatAttachment> {
+function validateAttachmentFile(file:File){
   const lowerName=file.name.toLowerCase();
   const photoType=normalizePhotoType(file);
   const mimeType=photoType||file.type.toLowerCase()||"application/octet-stream";
@@ -67,6 +70,13 @@ export async function prepareAttachment(
   if(isPdf&&file.size>MAX_PDF_BYTES)throw new Error("PDFs must be 15 MB or smaller.");
   if(isText&&file.size>MAX_TEXT_BYTES)throw new Error("Text files must be 5 MB or smaller.");
   if(!isImage&&!isPdf&&!isText)throw new Error(file.type.toLowerCase().startsWith("image/")?"Use a JPG, PNG, WEBP, GIF, HEIC, or HEIF photo.":"Use a JPG, PNG, WEBP, GIF, PDF, TXT, MD, or CSV file.");
+  return {mimeType,isImage,isPdf,isText};
+}
+
+export async function prepareAttachment(
+  file: File,onProgress?:(message:string)=>void,imageBudget=MAX_ANALYSIS_IMAGE_BYTES,knownOriginalSha256?:string
+): Promise<ChatAttachment> {
+  const {mimeType,isImage,isPdf,isText}=validateAttachmentFile(file);
 
   onProgress?.(isImage?"Optimizing photo…":"Preparing document…");
   const fileHash = knownOriginalSha256||await sha256(await file.arrayBuffer());

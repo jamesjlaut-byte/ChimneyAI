@@ -56,6 +56,42 @@ test("verified evidence writes reject conflicts and merge previews without weake
   await assert.rejects(writeVerifiedSourceFile({sha256,name:"field.heic",mime_type:"image/heic",byte_size:altered.length,blob:new Blob([altered])},store),/do not match the target SHA-256/);
 });
 
+test("an unreadable photo does not discard valid photos in the same selection",async()=>{
+  const broken={name:"icloud.heic",type:"image/heic",size:8000000,arrayBuffer:async()=>{throw new DOMException("Unavailable","NotReadableError")}};
+  const first=file(Buffer.from("first original"),"first.jpg");
+  const last=file(Buffer.from("last original"),"last.jpg");
+  const result=await filterUniqueOriginalFiles([first,broken,last],[]);
+  assert.deepEqual(result.unique.map(item=>item.file.name),["first.jpg","last.jpg"]);
+  assert.equal(result.errors.length,1);
+  assert.match(result.errors[0],/icloud.heic: Could not read this file/);
+  assert.equal(result.duplicates.length,0);
+});
+
+test("invalid or oversized selections are rejected before reading original bytes",async()=>{
+  const neverRead=async()=>assert.fail("Rejected file must not be read into memory");
+  const result=await filterUniqueOriginalFiles([
+    {name:"too-large.jpg",type:"image/jpeg",size:50*1024*1024+1,arrayBuffer:neverRead},
+    {name:"empty.heic",type:"image/heic",size:0,arrayBuffer:neverRead},
+    {name:"video.mov",type:"video/quicktime",size:1000000000,arrayBuffer:neverRead},
+    {name:"manual.pdf",type:"application/pdf",size:16*1024*1024,arrayBuffer:neverRead}
+  ],[]);
+  assert.equal(result.unique.length,0);
+  assert.equal(result.duplicates.length,0);
+  assert.equal(result.errors.length,4);
+  assert.match(result.errors[0],/50 MB/);
+  assert.match(result.errors[1],/empty/);
+  assert.match(result.errors[3],/15 MB/);
+});
+
+test("50 MiB photos remain accepted and duplicate matching ignores hash casing",async()=>{
+  const original=new File([new Uint8Array(50*1024*1024)],"large.jpg",{type:"image/jpeg"});
+  const accepted=await filterUniqueOriginalFiles([original],[]);
+  assert.equal(accepted.unique.length,1);
+  assert.equal(accepted.errors.length,0);
+  const duplicate=await filterUniqueOriginalFiles([file(Buffer.from("same"),"same.jpg")],[hash("same").toUpperCase()]);
+  assert.equal(duplicate.duplicates.length,1);
+});
+
 test("mobile photo MIME aliases and extension fallbacks normalize narrowly",()=>{
   for(const type of ["image/heic-sequence","image/x-heic"])assert.equal(normalizePhotoType({type,name:"photo.bin"}),"image/heic");
   for(const type of ["image/heif-sequence","image/x-heif"])assert.equal(normalizePhotoType({type,name:"photo.bin"}),"image/heif");

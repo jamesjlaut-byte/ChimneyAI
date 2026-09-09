@@ -127,7 +127,10 @@ export default function ChimneyChat({mode}:{mode:Mode}){
     try{
     setAttachmentStatus("Checking selected photo fingerprints…");
     const selected=Array.from(files),deduplicated=await filterUniqueOriginalFiles(selected,attachments.map(originalSourceHash));
-    if(!deduplicated.unique.length){setAttachmentStatus("This exact photo is already attached.");return}
+    if(!deduplicated.unique.length){
+      setAttachmentStatus([...deduplicated.errors,...(deduplicated.duplicates.length?["This exact photo is already attached."]:[])].join(" "));
+      return;
+    }
     const attachmentSlots=6-attachments.length;
     const sourceSlots=mode==="pro"?MAX_CASE_SOURCES-sourceFiles.length:attachmentSlots;
     const available=Math.min(attachmentSlots,sourceSlots),sourceContext=proSource;
@@ -139,7 +142,7 @@ export default function ChimneyChat({mode}:{mode:Mode}){
     }
     const candidates=deduplicated.unique.slice(0,available);
     setAttachmentStatus(`Preparing ${candidates.length} attachment${candidates.length===1?"":"s"}…`);
-    const next=[...attachments],errors:string[]=[];
+    const next=[...attachments],errors:string[]=[...deduplicated.errors];
     const imageCount=attachments.filter(a=>a.kind==="image").length+candidates.filter(({file})=>Boolean(normalizePhotoType(file))).length;
     const imageBudget=Math.floor(MAX_IMAGE_BATCH_BYTES/Math.max(1,imageCount));
     // Rebalance previously attached viewing copies only when the batch grows.
