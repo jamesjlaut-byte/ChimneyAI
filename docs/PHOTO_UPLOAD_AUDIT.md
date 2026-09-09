@@ -95,6 +95,15 @@ GitHub main was checked read-only and remained at `94b698fae9e692d88046d9db07ec4
 - Existing guided-inspection previews and useful metadata survive chat persistence and raw-file restoration without a replacement write. Same-sized altered originals and optimized-only attachments are rejected before opening the vault.
 - All 61 tests passed. Fixtures contain synthetic byte payloads, not decodable camera photographs; these are persistence/provenance tests, not image decoding, live Supabase restore, physical-iPhone, or model-analysis acceptance. No application code changed in this pass.
 
+## Live browser verification and follow-up repair — 2026-09-09
+
+- On production commit `1206a13`, the Codex in-app browser uploaded a synthetic 4032×3024 JPEG padded from 1,902,377 bytes to 16 MiB. It optimized to approximately 685 KB, reached the configured model, and received an image-specific description. Padding tests original-file size acceptance; it does not simulate a highly complex 16 MiB camera image.
+- Active-photo and same-selection duplicates showed “This exact photo is already attached.” The 16 MiB original was persisted, hash-verified, recovered after page reload, and restored to chat with the same original fingerprint (`c7ff302bb4a406099aec0bcde08271eab328fa6a37a940635dcc0a75f1b40cf4`).
+- Six distinct originals with identical image pixels (different trailing padding bytes) remained six attachments despite identical optimized hashes. Each was approximately 530 KB; the displayed combined estimate was 3.19 / 4.00 MB. A 390×844 viewport displayed the thumbnails and composer without horizontal clipping. Browser console capture reported no warnings/errors.
+- The six-photo follow-up exposed an unrelated API history defect: production logs returned `400 Invalid value: 'input_text'. Supported values are: 'output_text' and 'refusal'.` The route incorrectly encoded prior assistant replies as input-text blocks. This was not a 413 or a photo-size rejection.
+- `buildModelInput` now preserves assistant history using the Responses API's string-content message format, while current user evidence retains image and document input blocks. Model selection, technical/safety prompts, provenance, upload limits, and UI are unchanged. Three regressions cover follow-up history, six photos, and document placement; all 64 tests passed. Post-deployment live follow-up verification is required separately.
+- Official format reference: https://developers.openai.com/api/docs/guides/conversation-state . Physical iPhone, live HEIC orientation/iCloud selection, guided-inspection preview retention through the UI, and live cloud restore remain unverified in this pass.
+
 ## Sources
 
 - https://vercel.com/docs/functions/limitations

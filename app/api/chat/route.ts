@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import type {ResponseInputContent,ResponseInputItem} from "openai/resources/responses/responses";
+import {buildModelInput} from "@/lib/model-input";
 import {MAX_CHAT_REQUEST_BYTES,parseChatRequest} from "@/lib/chat-request";
 import {promptForMode} from "@/lib/prompts";
 import {proSourceInstruction} from "@/lib/pro-source";
@@ -39,17 +39,7 @@ export async function POST(req:Request){
   const verifiedModel=parsed.data.manual_verification?.verified_model?.trim();
   const modelMismatch=modelsConflict(sourceModel,verifiedModel);
 
-  const input:ResponseInputItem[]=[];
-  parsed.data.messages.forEach((m,index)=>{
-    const content:ResponseInputContent[]=[{type:"input_text",text:m.content}];
-    if(index===parsed.data.messages.length-1 && m.role==="user"){
-      for(const a of attachments){
-        if(a.kind==="image"&&a.data_url)content.push({type:"input_image",image_url:a.data_url,detail:"high"});
-        if(a.kind==="document_text"&&a.text)content.push({type:"input_text",text:`\nATTACHED DOCUMENT: ${a.name}\n---\n${a.text}\n---`});
-      }
-    }
-    input.push({role:m.role,content});
-  });
+  const input=buildModelInput(parsed.data.messages,attachments);
 
   const attachmentInstruction=attachments.length?`
 ATTACHMENT RULES:
