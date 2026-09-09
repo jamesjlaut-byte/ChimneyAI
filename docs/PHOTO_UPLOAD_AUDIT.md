@@ -113,6 +113,13 @@ GitHub main was checked read-only and remained at `94b698fae9e692d88046d9db07ec4
 - Reloaded the page, reopened the guided inspection, and returned to the original component. The photo association, Other category, caption, fingerprint, and loaded 1280×854 thumbnail remained present. Browser console capture contained no errors or warnings. This is a real UI save → chat persist → reload → preview recovery check, not only a merge-helper test.
 - No application code or UI was changed in this pass. This does not identify whether native HEIC decoding or the fallback decoder handled the sample, prove all HEIC orientation variants, or establish physical-iPhone Camera/Photo Library/iCloud-only acceptance. Live Supabase restore remains untested because cloud configuration is unavailable. The test-only draft/photo remain in the QA browser for follow-up verification; no actual inspection was performed or finalized.
 
+## Metadata-only cloud sync preservation — 2026-09-09
+
+- Found a cross-device restoration risk: syncing a case without locally stored originals sent `storage_path: null` and a browser-local integrity status in the source-row upsert. This could clear an existing cloud object's restoration link even though the object itself remained in storage.
+- Source metadata upserts now omit storage-path and integrity columns when no local original is available. Existing cloud values remain untouched; newly inserted metadata-only records use the database's null/unchecked defaults. Confirmed uploads and already-present responses still include their object path. Upload counts and all photo/AI limits are unchanged.
+- Four regressions cover archived-link preservation, new metadata-only records, confirmed object paths, and the installed Supabase client's actual serialized HTTP request (mocked transport). These are not hosted Postgres/RLS/storage integration tests. Live cloud restore and physical-device acceptance remain outstanding.
+- Changed files: `lib/cloud-source-record.ts`, `lib/workspace-sync.ts`, `tests/cloud-source-record.test.mjs`, and this audit. No UI, prompts, dependencies, or schema changes.
+
 ## Sources
 
 - https://vercel.com/docs/functions/limitations

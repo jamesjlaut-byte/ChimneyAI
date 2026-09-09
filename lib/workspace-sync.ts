@@ -3,6 +3,7 @@ import type {SourceProvenanceRecord} from "@/lib/source-provenance";
 import {getBrowserSupabase,hasSupabaseConfig} from "@/lib/supabase-client";
 import {verifyStoredSourceFile,writeVerifiedSourceFile} from "@/lib/source-file-store";
 import {isAlreadyPresentStorageError} from "@/lib/storage-upload-result";
+import {cloudSourceRecord} from "@/lib/cloud-source-record";
 
 export type SyncMode="browser_only"|"cloud_ready"|"cloud_connected";
 export type SyncResult={
@@ -148,19 +149,8 @@ export async function syncCaseToCloud(c:ProCase):Promise<SyncResult>{
     const {src}=prepared;
     const upload=await uploadCaseSource(remoteCaseId,prepared);
     if(upload.uploaded)uploaded++;
-    const {error:srcError}=await supabase.from("pro_case_sources").upsert({
-      case_id:remoteCaseId,
-      sha256:src.sha256,
-      file_name:src.file_name,
-      mime_type:src.mime_type,
-      byte_size:src.byte_size,
-      page_count:src.page_count||null,
-      text_truncated:Boolean(src.text_truncated),
-      source_role:src.role,
-      technician_note:src.note||null,
-      storage_path:upload.path,
-      integrity_status:src.integrity_status||"unchecked"
-    },{onConflict:"case_id,sha256"});
+    const {error:srcError}=await supabase.from("pro_case_sources").upsert(
+      cloudSourceRecord(remoteCaseId,src,upload.path),{onConflict:"case_id,sha256"});
     if(srcError)throw srcError;
   }
 
