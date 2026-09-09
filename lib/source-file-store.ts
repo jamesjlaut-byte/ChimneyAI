@@ -39,15 +39,26 @@ function openDb():Promise<IDBDatabase>{
   });
 }
 
-async function putStoredSourceFile(file:StoredSourceFile){
+async function runVaultRequest<T>(mode:IDBTransactionMode,request:(store:IDBObjectStore)=>IDBRequest<T>):Promise<T>{
   const db=await openDb();
-  await new Promise<void>((resolve,reject)=>{
-    const tx=db.transaction(STORE,"readwrite");
-    tx.objectStore(STORE).put(file);
-    tx.oncomplete=()=>resolve();
-    tx.onerror=()=>reject(tx.error);
-  });
-  db.close();
+  try{
+    return await new Promise<T>((resolve,reject)=>{
+      const tx=db.transaction(STORE,mode);
+      const failed=()=>reject(tx.error||new Error("Browser source vault transaction was aborted. The operation did not complete; please retry."));
+      tx.onabort=failed;
+      tx.onerror=failed;
+      const req=request(tx.objectStore(STORE));
+      req.onerror=()=>reject(req.error||new Error("Browser source vault request failed. Please retry."));
+      // Request success alone does not establish that the transaction committed.
+      tx.oncomplete=()=>resolve(req.result);
+    });
+  }finally{
+    db.close();
+  }
+}
+
+async function putStoredSourceFile(file:StoredSourceFile){
+  await runVaultRequest("readwrite",store=>store.put(file));
 }
 
 function usefulName(value:string){return Boolean(value.trim())&&!/^(?:source-file|unknown|blob)$/i.test(value.trim())}
@@ -105,26 +116,12 @@ export async function writeVerifiedSourceFile(incoming:VerifiedSourceWrite,store
 }
 
 export async function getStoredSourceFile(sha256:string):Promise<StoredSourceFile|null>{
-  const db=await openDb();
-  const out=await new Promise<StoredSourceFile|null>((resolve,reject)=>{
-    const tx=db.transaction(STORE,"readonly");
-    const req=tx.objectStore(STORE).get(sha256);
-    req.onsuccess=()=>resolve((req.result as StoredSourceFile)||null);
-    req.onerror=()=>reject(req.error);
-  });
-  db.close();
-  return out;
+  const out=await runVaultRequest("readonly",store=>store.get(sha256));
+  return (out as StoredSourceFile)||null;
 }
 
 export async function deleteStoredSourceFile(sha256:string){
-  const db=await openDb();
-  await new Promise<void>((resolve,reject)=>{
-    const tx=db.transaction(STORE,"readwrite");
-    tx.objectStore(STORE).delete(sha256);
-    tx.oncomplete=()=>resolve();
-    tx.onerror=()=>reject(tx.error);
-  });
-  db.close();
+  await runVaultRequest("readwrite",store=>store.delete(sha256));
 }
 
 export async function hasStoredSourceFile(sha256:string){
@@ -132,15 +129,8 @@ export async function hasStoredSourceFile(sha256:string){
 }
 
 export async function listStoredSourceFiles():Promise<StoredSourceFile[]>{
-  const db=await openDb();
-  const out=await new Promise<StoredSourceFile[]>((resolve,reject)=>{
-    const tx=db.transaction(STORE,"readonly");
-    const req=tx.objectStore(STORE).getAll();
-    req.onsuccess=()=>resolve((req.result as StoredSourceFile[])||[]);
-    req.onerror=()=>reject(req.error);
-  });
-  db.close();
-  return out;
+  const out=await runVaultRequest("readonly",store=>store.getAll());
+  return (out as StoredSourceFile[])||[];
 }
 
 export async function sha256Blob(blob:Blob){

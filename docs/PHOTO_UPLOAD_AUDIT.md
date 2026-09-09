@@ -81,6 +81,13 @@ GitHub main was checked read-only and remained at `94b698fae9e692d88046d9db07ec4
 - Added deterministic regression coverage for concurrent preview/chat saves, uppercase/lowercase fingerprints, and recovery after rejected bytes. All 54 tests passed, including six-photo multipart and request-boundary checks. This is not physical-iPhone or hosted-cloud acceptance.
 - No photo limits, optimization settings, UI, dependencies, or inspection behavior changed.
 
+## Aborted vault transactions — 2026-09-09
+
+- Vault reads, lists, saves, and deletes now share transaction completion/error handling. A successful IndexedDB request is not reported as a successful operation until its transaction commits.
+- Transactions aborted without an error event now reject with a retry message rather than leaving the UI and same-photo write queue waiting indefinitely. Original storage errors (including quota failures) are retained. Database connections close on success, abort, request error, and synchronous failure.
+- Added four simulated IndexedDB regression tests covering abort after request success, save-queue recovery, quota/request/synchronous failures, connection cleanup, and committed operations. All 58 tests passed. These tests exercise the public vault functions with simulated browser events; they do not establish physical-iPhone acceptance or hosted-cloud archival.
+- No changes to UI, accepted photo sizes/types, compression, provenance, or database schema.
+
 ## Sources
 
 - https://vercel.com/docs/functions/limitations
