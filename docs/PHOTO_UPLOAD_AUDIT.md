@@ -88,6 +88,13 @@ GitHub main was checked read-only and remained at `94b698fae9e692d88046d9db07ec4
 - Added four simulated IndexedDB regression tests covering abort after request success, save-queue recovery, quota/request/synchronous failures, connection cleanup, and committed operations. All 58 tests passed. These tests exercise the public vault functions with simulated browser events; they do not establish physical-iPhone acceptance or hosted-cloud archival.
 - No changes to UI, accepted photo sizes/types, compression, provenance, or database schema.
 
+## Public persistence regression coverage — 2026-09-09
+
+- Tests now call `persistAttachmentBytes`, `persistRawFile`, and `verifyStoredSourceFile` through simulated IndexedDB, rather than testing only the merge helper.
+- A synthetic 16 MiB original with a separate small optimized data URL is persisted and rehashed from a structured-cloned stored record. Assertions check that the original bytes, byte count, and original fingerprint are saved, not the AI derivative.
+- Existing guided-inspection previews and useful metadata survive chat persistence and raw-file restoration without a replacement write. Same-sized altered originals and optimized-only attachments are rejected before opening the vault.
+- All 61 tests passed. Fixtures contain synthetic byte payloads, not decodable camera photographs; these are persistence/provenance tests, not image decoding, live Supabase restore, physical-iPhone, or model-analysis acceptance. No application code changed in this pass.
+
 ## Sources
 
 - https://vercel.com/docs/functions/limitations
