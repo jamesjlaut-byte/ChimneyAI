@@ -105,6 +105,14 @@ GitHub main was checked read-only and remained at `94b698fae9e692d88046d9db07ec4
 - After deploying fix `311d39d`, the same six-photo request was retried in the existing production conversation. It succeeded: the model described the six synthetic grids and preserved the technician-review labeling. The six optimized previews were 1843×1382 at approximately 530 KB each. This verifies a live multipart follow-up with prior assistant history, not just initial-message transport. A dependency `url.parse()` deprecation warning was observed separately; it did not prevent successful analysis.
 - Official format reference: https://developers.openai.com/api/docs/guides/conversation-state . Physical iPhone, live HEIC orientation/iCloud selection, guided-inspection preview retention through the UI, and live cloud restore remain unverified in this pass.
 
+## Live HEIC and guided-preview retention — 2026-09-09
+
+- Tested production `684aa89` through the Codex in-app browser using the public libheif `examples/example.heic` sample (718,114 bytes). Independent local SHA-256: `7f8b363e4936c0666a25f64f3a92fda10bd8e5453be4592530b65a55dd98f3f2`.
+- Created a clearly labeled local QA inspection, with no real customer/property information, an “Unable to inspect” status, and an explicit test-only note. Uploaded the HEIC to a component with category Other and caption “QA public HEIC sample — not inspection evidence.” The application saved its original fingerprint and rendered a 1280×854 preview.
+- Attached that same original in chat: approximately 350 KB optimized image, 0.36 / 4.00 MB displayed request estimate. Persisted it through the chat vault control, then verified its original hash. The live model returned an image-specific description of the sample's riverside buildings, water, and tower while retaining technician-review labeling.
+- Reloaded the page, reopened the guided inspection, and returned to the original component. The photo association, Other category, caption, fingerprint, and loaded 1280×854 thumbnail remained present. Browser console capture contained no errors or warnings. This is a real UI save → chat persist → reload → preview recovery check, not only a merge-helper test.
+- No application code or UI was changed in this pass. This does not identify whether native HEIC decoding or the fallback decoder handled the sample, prove all HEIC orientation variants, or establish physical-iPhone Camera/Photo Library/iCloud-only acceptance. Live Supabase restore remains untested because cloud configuration is unavailable. The test-only draft/photo remain in the QA browser for follow-up verification; no actual inspection was performed or finalized.
+
 ## Sources
 
 - https://vercel.com/docs/functions/limitations
