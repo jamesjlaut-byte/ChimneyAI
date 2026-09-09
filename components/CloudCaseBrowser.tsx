@@ -5,7 +5,7 @@ import {compareCaseVersions,loadCases,saveCases,upsertLocalCase,type ProCase} fr
 
 export default function CloudCaseBrowser({
   onImported
-}:{onImported?:(c:ProCase)=>void}){
+}:{onImported?:(c:ProCase)=>boolean}){
   const [rows,setRows]=useState<CloudCaseSummary[]>([]);
   const [busy,setBusy]=useState<string|null>(null);
   const [message,setMessage]=useState("");
@@ -54,8 +54,8 @@ export default function CloudCaseBrowser({
     }
     const imported:{[K in keyof ProCase]:ProCase[K]}={...c};
     saveCases(upsertLocalCase(cases,imported));
-    setMessage("Cloud case copied into this browser.");
-    onImported?.(imported);
+    const opened=onImported?.(imported);
+    setMessage(opened===false?"Cloud case copied into Saved Pro Cases. The active conversation was not replaced.":"Cloud case copied into this browser.");
     setLoaded(x=>!x);
   }
 

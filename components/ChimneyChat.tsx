@@ -37,6 +37,7 @@ export default function ChimneyChat({mode}:{mode:Mode}){
   const [proSource,setProSource]=useState<ProSourceState>(EMPTY_PRO_SOURCE);
   const [manualVerification,setManualVerification]=useState<ManualVerification>(EMPTY_MANUAL);
   const [sourceFiles,setSourceFiles]=useState<SourceProvenanceRecord[]>([]);
+  const [caseManagerEpoch,setCaseManagerEpoch]=useState(0);
   const buildUploadPayload=useCallback((value:string)=>({
     mode,messages:modelHistory([...messages,{role:"user" as const,content:value.trim()||`Please review the attached ${attachments.length===1?"file":"files"}.`}]),
     attachments:attachments.map(({original_blob,...a})=>a),
@@ -246,6 +247,7 @@ export default function ChimneyChat({mode}:{mode:Mode}){
   }
 
   function startNewChat(){
+    if(preparing){setAttachmentStatus("Wait for photo preparation to finish before starting a new chat.");return}
     const warning=mode==="pro"?"Start a new chat? Save the current Pro case first if you need this conversation.":"Start a new chat? This conversation will be cleared.";
     if(!window.confirm(warning))return;
     requestRef.current?.controller.abort();requestRef.current=null;setBusy(false);
@@ -253,10 +255,22 @@ export default function ChimneyChat({mode}:{mode:Mode}){
   }
 
   function discardActiveDraft(){
+    if(preparing){setAttachmentStatus("Wait for photo preparation to finish before discarding this draft.");return}
     if(!window.confirm("Discard the active Pro draft on this device? Saved Pro Cases and Source File Vault bytes will not be deleted."))return;
     requestRef.current?.controller.abort();requestRef.current=null;draftRef.current=null;setBusy(false);clearProDraft();
     setMessages([]);setText("");setAttachments([]);setAttachmentStatus("");setProSource(EMPTY_PRO_SOURCE);
     setManualVerification(EMPTY_MANUAL);setSourceFiles([]);setDraftStatus("");
+  }
+
+  function loadCaseIntoChat(loaded:{source:ProSourceState;manual:ManualVerification;question:string;messages:Msg[];sourceFiles:SourceProvenanceRecord[]}){
+    if(preparing){setAttachmentStatus("Wait for photo preparation to finish before switching cases.");return false}
+    if((attachmentsRef.current.length||messages.length||text.trim())&&!window.confirm("Load this case and replace the active conversation? Current active attachments will be removed from chat. Save your current case and persist any original files you need first. Saved cases and vault originals will not be deleted."))return false;
+    requestRef.current?.controller.abort();requestRef.current=null;setBusy(false);
+    attachmentsRef.current=[];setAttachments([]);
+    setProSource(loaded.source);setManualVerification(loaded.manual);
+    setMessages(loaded.messages);setSourceFiles(loaded.sourceFiles);setText(loaded.question);
+    setAttachmentStatus("Case loaded without active attachments from the previous conversation. Restore this case's saved originals from the Source File Vault as needed.");
+    return true;
   }
 
   return <div className={`chatExperience ${mode}`}><div className={`chatShell ${mode}`}>
@@ -301,14 +315,19 @@ export default function ChimneyChat({mode}:{mode:Mode}){
     <ManualVerificationCard value={manualVerification} onChange={setManualVerification} manufacturer={proSource.manufacturer} model={proSource.model}/>
     <SourceManifest attachments={attachments} records={sourceFiles} sourceContext={proSource} onChange={setSourceFiles} onAttach={attachFromVault}/>
     <ProFieldTools/>
-    <ProCaseManager source={proSource} manual={manualVerification} messages={messages} sourceFiles={sourceFiles}
-      onLoad={({source,manual,question,messages:loadedMessages,sourceFiles:loadedSourceFiles})=>{setProSource(source);setManualVerification(manual);setMessages(loadedMessages);setSourceFiles(loadedSourceFiles);if(question)setText(question)}}
+    <ProCaseManager key={caseManagerEpoch} source={proSource} manual={manualVerification} messages={messages} sourceFiles={sourceFiles}
+      onLoad={loadCaseIntoChat}
       onClearChat={startNewChat}/>
     <details className="workspaceGroup cloudTools">
       <summary><span>Cloud &amp; multi-device</span><small>optional sign-in, sync, and retrieval</small></summary>
       <div className="workspaceGroupBody">
         <CloudWorkspace/>
-        <CloudCaseBrowser onImported={(c)=>{setProSource(c.source);setManualVerification(c.manual);setMessages(c.messages.map(({role,content})=>({role,content})));setSourceFiles(c.source_files);if(c.technical_question)setText(c.technical_question);window.dispatchEvent(new Event("chimneyai:cases-changed"))}}/>
+        <CloudCaseBrowser onImported={(c)=>{
+          window.dispatchEvent(new Event("chimneyai:cases-changed"));
+          const opened=loadCaseIntoChat({source:c.source,manual:c.manual,messages:c.messages.map(({role,content})=>({role,content})),sourceFiles:c.source_files,question:c.technical_question});
+          if(opened)setCaseManagerEpoch(value=>value+1);
+          return opened;
+        }}/>
       </div>
     </details>
   </div>}

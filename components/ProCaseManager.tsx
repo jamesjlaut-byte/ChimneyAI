@@ -17,7 +17,7 @@ export default function ProCaseManager({
   manual:ManualVerification;
   messages:ChatMsg[];
   sourceFiles:SourceProvenanceRecord[];
-  onLoad:(x:{source:ProSourceState;manual:ManualVerification;question:string;messages:ChatMsg[];sourceFiles:SourceProvenanceRecord[]})=>void;
+  onLoad:(x:{source:ProSourceState;manual:ManualVerification;question:string;messages:ChatMsg[];sourceFiles:SourceProvenanceRecord[]})=>boolean;
   onClearChat:()=>void;
 }){
   const [cases,setCases]=useState<ProCase[]>([]);
@@ -65,8 +65,9 @@ export default function ProCaseManager({
   }
 
   function loadCase(c:ProCase){
+    const loaded=onLoad({source:c.source,manual:c.manual,question:c.technical_question,messages:c.messages.map(({role,content})=>({role,content})),sourceFiles:c.source_files});
+    if(!loaded){setSyncMessage("Case not opened. The active conversation is unchanged.");return}
     setEditingId(c.id);setTitle(c.title);setNotes(c.notes);setSyncMessage("Case loaded. Save will update this browser copy.");
-    onLoad({source:c.source,manual:c.manual,question:c.technical_question,messages:c.messages.map(({role,content})=>({role,content})),sourceFiles:c.source_files});
   }
 
   async function syncCloud(c:ProCase){

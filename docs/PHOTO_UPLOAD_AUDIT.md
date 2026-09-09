@@ -142,6 +142,14 @@ GitHub main was checked read-only and remained at `94b698fae9e692d88046d9db07ec4
 - Four deterministic tests cover stalled transports, stalled bodies, timer cleanup after success/failure, cancellation, and late completion. All 77 tests, lint, and production build passed. A physical poor-signal phone test remains outstanding; simulated transport tests are not field acceptance.
 - Changed files: `lib/chat-deadline.ts`, `components/ChimneyChat.tsx`, `tests/chat-deadline.test.mjs`, and this audit. Upload limits, photo quality, model configuration, prompts, and layout are unchanged.
 
+## Case activation boundaries — 2026-09-09
+
+- Loading a local/cloud case previously retained the prior conversation's active attachments and did not invalidate an in-flight chat request. Both activation paths now share confirmation, request cancellation, attachment reset, and complete question/context replacement (including empty questions).
+- Declining activation preserves the current conversation and local edit target. Cloud import can still save the copied case without opening it, and reports that distinction. Successful cloud activation resets the prior local case editor to avoid saving over its previous target.
+- New chat, discard, and case activation wait while chat photo/upload preparation is running, preventing that preparation from completing into a replacement conversation. Persisted vault originals and saved cases are not deleted.
+- React review checked callback return types, confirmation before mutation, request invalidation, editor remount scope, and unchanged layout. Three component-wiring regressions complement existing async timeout tests; all 80 tests, lint, and production build passed. These static guards do not simulate React scheduling or establish physical-device/cloud acceptance.
+- Changed files: `components/ChimneyChat.tsx`, `components/ProCaseManager.tsx`, `components/CloudCaseBrowser.tsx`, `tests/case-switch.test.mjs`, and this audit.
+
 ## Sources
 
 - https://vercel.com/docs/functions/limitations
