@@ -150,6 +150,13 @@ GitHub main was checked read-only and remained at `94b698fae9e692d88046d9db07ec4
 - React review checked callback return types, confirmation before mutation, request invalidation, editor remount scope, and unchanged layout. Three component-wiring regressions complement existing async timeout tests; all 80 tests, lint, and production build passed. These static guards do not simulate React scheduling or establish physical-device/cloud acceptance.
 - Changed files: `components/ChimneyChat.tsx`, `components/ProCaseManager.tsx`, `components/CloudCaseBrowser.tsx`, `tests/case-switch.test.mjs`, and this audit.
 
+## Delayed vault work isolation — 2026-09-09
+
+- Vault restoration runs independently of chat upload preparation. A delayed restoration or metadata callback could previously update a different conversation after a case switch, new chat, or draft discard.
+- Confirmed context transitions now invalidate prior vault callbacks and remount the vault UI. Stale photo restoration is ignored, and stale metadata cannot replace the current case manifest. Cancelled transitions leave current work valid. Verified original-file writes already in progress may finish; originals are not deleted.
+- Three regressions cover delayed photo/metadata completion, current-context validity, repeated invalidation, and component wiring. These are deterministic async/unit and source-wiring tests, not timed browser-race or physical-iPhone acceptance tests. Photo settings, request limits, prompts, and layout are unchanged.
+- Changed files: `components/ChimneyChat.tsx`, `components/SourceManifest.tsx`, `lib/chat-context-boundary.ts`, `tests/chat-context-boundary.test.mjs`, and this audit.
+
 ## Sources
 
 - https://vercel.com/docs/functions/limitations

@@ -24,6 +24,7 @@ import {MAX_CHAT_REQUEST_BYTES} from "@/lib/chat-request";
 import {MAX_IMAGE_BATCH_BYTES} from "@/lib/phone-image";
 import {normalizePhotoType} from "@/lib/photo-type";
 import {ChatRequestTimeoutError,withChatDeadline} from "@/lib/chat-deadline";
+import {createChatContextBoundary} from "@/lib/chat-context-boundary";
 
 const InspectionSetup=dynamic(()=>import("@/components/InspectionSetup"),{ssr:false});
 
@@ -38,6 +39,9 @@ export default function ChimneyChat({mode}:{mode:Mode}){
   const [manualVerification,setManualVerification]=useState<ManualVerification>(EMPTY_MANUAL);
   const [sourceFiles,setSourceFiles]=useState<SourceProvenanceRecord[]>([]);
   const [caseManagerEpoch,setCaseManagerEpoch]=useState(0);
+  const [contextBoundary]=useState(createChatContextBoundary);
+  const [vaultEpoch,setVaultEpoch]=useState(0);
+  const isCurrentVaultContext=contextBoundary.capture();
   const buildUploadPayload=useCallback((value:string)=>({
     mode,messages:modelHistory([...messages,{role:"user" as const,content:value.trim()||`Please review the attached ${attachments.length===1?"file":"files"}.`}]),
     attachments:attachments.map(({original_blob,...a})=>a),
@@ -250,21 +254,24 @@ export default function ChimneyChat({mode}:{mode:Mode}){
     if(preparing){setAttachmentStatus("Wait for photo preparation to finish before starting a new chat.");return}
     const warning=mode==="pro"?"Start a new chat? Save the current Pro case first if you need this conversation.":"Start a new chat? This conversation will be cleared.";
     if(!window.confirm(warning))return;
+    contextBoundary.invalidate();setVaultEpoch(value=>value+1);
     requestRef.current?.controller.abort();requestRef.current=null;setBusy(false);
-    setMessages([]);setText("");setAttachments([]);setAttachmentStatus("");
+    attachmentsRef.current=[];setMessages([]);setText("");setAttachments([]);setAttachmentStatus("");
   }
 
   function discardActiveDraft(){
     if(preparing){setAttachmentStatus("Wait for photo preparation to finish before discarding this draft.");return}
     if(!window.confirm("Discard the active Pro draft on this device? Saved Pro Cases and Source File Vault bytes will not be deleted."))return;
+    contextBoundary.invalidate();setVaultEpoch(value=>value+1);
     requestRef.current?.controller.abort();requestRef.current=null;draftRef.current=null;setBusy(false);clearProDraft();
-    setMessages([]);setText("");setAttachments([]);setAttachmentStatus("");setProSource(EMPTY_PRO_SOURCE);
+    attachmentsRef.current=[];setMessages([]);setText("");setAttachments([]);setAttachmentStatus("");setProSource(EMPTY_PRO_SOURCE);
     setManualVerification(EMPTY_MANUAL);setSourceFiles([]);setDraftStatus("");
   }
 
   function loadCaseIntoChat(loaded:{source:ProSourceState;manual:ManualVerification;question:string;messages:Msg[];sourceFiles:SourceProvenanceRecord[]}){
     if(preparing){setAttachmentStatus("Wait for photo preparation to finish before switching cases.");return false}
     if((attachmentsRef.current.length||messages.length||text.trim())&&!window.confirm("Load this case and replace the active conversation? Current active attachments will be removed from chat. Save your current case and persist any original files you need first. Saved cases and vault originals will not be deleted."))return false;
+    contextBoundary.invalidate();setVaultEpoch(value=>value+1);
     requestRef.current?.controller.abort();requestRef.current=null;setBusy(false);
     attachmentsRef.current=[];setAttachments([]);
     setProSource(loaded.source);setManualVerification(loaded.manual);
@@ -313,7 +320,9 @@ export default function ChimneyChat({mode}:{mode:Mode}){
     <ProSourceDesk value={proSource} onChange={setProSource}/>
     <ManualFinder manufacturer={proSource.manufacturer} model={proSource.model} onPrepareQuestion={setText}/>
     <ManualVerificationCard value={manualVerification} onChange={setManualVerification} manufacturer={proSource.manufacturer} model={proSource.model}/>
-    <SourceManifest attachments={attachments} records={sourceFiles} sourceContext={proSource} onChange={setSourceFiles} onAttach={attachFromVault}/>
+    <SourceManifest key={vaultEpoch} attachments={attachments} records={sourceFiles} sourceContext={proSource}
+      onChange={records=>{if(isCurrentVaultContext())setSourceFiles(records)}}
+      onAttach={attachment=>isCurrentVaultContext()?attachFromVault(attachment):"stale"}/>
     <ProFieldTools/>
     <ProCaseManager key={caseManagerEpoch} source={proSource} manual={manualVerification} messages={messages} sourceFiles={sourceFiles}
       onLoad={loadCaseIntoChat}

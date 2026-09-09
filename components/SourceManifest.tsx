@@ -13,7 +13,7 @@ export default function SourceManifest({
   records:SourceProvenanceRecord[];
   sourceContext?:SourceRoleContext;
   onChange:(r:SourceProvenanceRecord[])=>void;
-  onAttach:(attachment:ChatAttachment)=>"attached"|"duplicate"|"full";
+  onAttach:(attachment:ChatAttachment)=>"attached"|"duplicate"|"full"|"stale";
 }){
   const [busy,setBusy]=useState<string|null>(null);
   const [status,setStatus]=useState("");
@@ -99,6 +99,7 @@ export default function SourceManifest({
       const prepared=await prepareAttachment(file);
       if(originalSourceHash(prepared)!==record.sha256)throw new Error("Reprepared source does not match the recorded SHA-256.");
       const result=onAttach(prepared);
+      if(result==="stale")return;
       update(record.sha256,{storage_status:"persisted_browser",integrity_status:"verified"});
       setStatus(result==="attached"
         ?`${record.file_name} was re-verified, prepared, and added to active chat sources.`
