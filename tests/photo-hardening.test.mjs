@@ -66,6 +66,39 @@ test("mobile photo MIME aliases and extension fallbacks normalize narrowly",()=>
   assert.equal(normalizePhotoType({type:"image/gif",name:"photo.gif"},{allowGif:false}),null);
 });
 
+test("concurrent inspection and chat writes preserve previews without Web Locks",async()=>{
+  const original=Buffer.from("concurrently saved original"),sha256=hash(original);
+  const preview=new Blob(["inspection preview"],{type:"image/jpeg"});
+  let stored=null,puts=0;
+  const store={
+    get:async()=>{const snapshot=stored;await new Promise(resolve=>setTimeout(resolve,10));return snapshot},
+    put:async value=>{stored=value;puts++}
+  };
+  const incoming={sha256,name:"field.heic",mime_type:"image/heic",byte_size:original.length,blob:new Blob([original])};
+  const results=await Promise.all([
+    writeVerifiedSourceFile({...incoming,preview_blob:preview,preview_verified:true},store),
+    writeVerifiedSourceFile({...incoming,sha256:sha256.toUpperCase()},store),
+    writeVerifiedSourceFile({...incoming,name:"source-file",mime_type:"application/octet-stream"},store)
+  ]);
+  assert.deepEqual(results.map(result=>result.status),["created","already_present","already_present"]);
+  assert.equal(stored.preview_blob,preview);
+  assert.equal(stored.name,"field.heic");
+  assert.equal(puts,1);
+});
+
+test("a failed evidence write does not block the next valid save",async()=>{
+  const original=Buffer.from("original evidence"),sha256=hash(original);
+  let stored=null;
+  const store={get:async()=>stored,put:async value=>{stored=value}};
+  const incoming={sha256,name:"photo.jpg",mime_type:"image/jpeg",byte_size:original.length,blob:new Blob([original])};
+  const altered=Buffer.from(original);altered[0]^=1;
+  const rejected=writeVerifiedSourceFile({...incoming,blob:new Blob([altered])},store);
+  const valid=writeVerifiedSourceFile(incoming,store);
+  await assert.rejects(rejected,/do not match the target SHA-256/);
+  assert.equal((await valid).status,"created");
+  assert.equal((await writeVerifiedSourceFile(incoming,store)).status,"already_present");
+});
+
 test("Supabase already-present responses are not new uploads",()=>{
   assert.equal(isAlreadyPresentStorageError({statusCode:409,message:"The resource already exists"}),true);
   assert.equal(isAlreadyPresentStorageError({statusCode:"409",error:"Duplicate"}),true);

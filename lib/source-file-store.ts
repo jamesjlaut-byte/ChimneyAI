@@ -54,6 +54,9 @@ function usefulName(value:string){return Boolean(value.trim())&&!/^(?:source-fil
 function usefulMime(value:string){return Boolean(value.trim())&&value!=="application/octet-stream"}
 
 const DEFAULT_EVIDENCE_STORE:EvidenceStore={get:getStoredSourceFile,put:putStoredSourceFile};
+// Serialize same-photo writes within this page even without Web Locks. Keep
+// separate stores and separate originals independent, and release failed writes.
+const evidenceWriteQueues=new WeakMap<EvidenceStore,Map<string,Promise<void>>>();
 
 async function mergeVerifiedSourceFile(incoming:VerifiedSourceWrite,store:EvidenceStore){
   if(!/^[a-f0-9]{64}$/i.test(incoming.sha256))throw new Error("The target source SHA-256 is invalid.");
@@ -86,8 +89,19 @@ async function mergeVerifiedSourceFile(incoming:VerifiedSourceWrite,store:Eviden
 }
 
 export async function writeVerifiedSourceFile(incoming:VerifiedSourceWrite,store:EvidenceStore=DEFAULT_EVIDENCE_STORE){
-  if(store!==DEFAULT_EVIDENCE_STORE||typeof navigator==="undefined"||!navigator.locks)return mergeVerifiedSourceFile(incoming,store);
-  return navigator.locks.request(`chimneyai-source:${incoming.sha256.toLowerCase()}`,()=>mergeVerifiedSourceFile(incoming,store));
+  let queue=evidenceWriteQueues.get(store);
+  if(!queue){queue=new Map();evidenceWriteQueues.set(store,queue)}
+  const key=incoming.sha256.toLowerCase();
+  const write=(queue.get(key)??Promise.resolve()).then(async()=>{
+    if(store!==DEFAULT_EVIDENCE_STORE||typeof navigator==="undefined"||!navigator.locks)return mergeVerifiedSourceFile(incoming,store);
+    // Web Locks additionally protect writes from other tabs when available.
+    return navigator.locks.request(`chimneyai-source:${key}`,()=>mergeVerifiedSourceFile(incoming,store));
+  });
+  const settled=write.then(()=>{},()=>{});
+  queue.set(key,settled);
+  try{return await write}finally{
+    if(queue.get(key)===settled)queue.delete(key);
+  }
 }
 
 export async function getStoredSourceFile(sha256:string):Promise<StoredSourceFile|null>{

@@ -74,6 +74,13 @@ GitHub main was checked read-only and remained at `94b698fae9e692d88046d9db07ec4
 - Browser verification: the final production build loaded `/pro` in the available Codex in-app browser with meaningful content and no framework error overlay. The available CUA file picker could not inject fixtures, so the previous synthetic 15 MiB/HEIC/six-photo browser transport checks were not repeated through this browser interface. New duplicate, merge, alias, and cloud-conflict behavior was verified through deterministic regression tests.
 - Not tested and not claimed: physical iPhone Safari Camera, Photo Library, HEIC orientation, iCloud-only selection, physical Android Chrome, live hosted Supabase migration state, or a full live-model response.
 
+## Concurrent evidence saves — 2026-09-09
+
+- Added a per-store, per-original SHA-256 write queue. Without Web Locks, simultaneous inspection/chat saves in the same page could previously both read a missing record and overwrite a preview. Writes now verify and merge sequentially; a rejected write does not block subsequent valid saves.
+- Web Locks still provide additional cross-tab serialization where available. The fallback queue is page-local, not a guarantee against simultaneous writes from separate tabs on browsers without Web Locks.
+- Added deterministic regression coverage for concurrent preview/chat saves, uppercase/lowercase fingerprints, and recovery after rejected bytes. All 54 tests passed, including six-photo multipart and request-boundary checks. This is not physical-iPhone or hosted-cloud acceptance.
+- No photo limits, optimization settings, UI, dependencies, or inspection behavior changed.
+
 ## Sources
 
 - https://vercel.com/docs/functions/limitations
