@@ -164,6 +164,12 @@ GitHub main was checked read-only and remained at `94b698fae9e692d88046d9db07ec4
 - Regression tests simulate read denial, malformed and partially invalid collections, duplicate IDs, first saves, valid updates, and quota failure. They assert that failed saves do not overwrite the original storage string. This is not automatic corruption repair, cross-tab locking, cloud backup, or physical-device acceptance.
 - Changed files: `lib/inspections.ts`, `tests/inspection-storage.test.mjs`, and this audit. No UI, photo pipeline, or AI behavior changes.
 
+## Inspection capacity without eviction — 2026-09-10
+
+- Adding a 51st inspection previously truncated the collection to 50 and could silently delete the oldest unsigned inspection. Upserts and serialization now reject over-capacity collections rather than truncate them. Existing inspections remain editable at capacity; the 50th inspection still saves normally.
+- Two regressions cover rejected 51st-record upserts, direct serialization and persistence, unchanged original storage, updates at capacity, and the 49-to-50 boundary. These use simulated storage, not a physical-device test. The capacity remains 50; this does not add cloud archival or a deletion workflow.
+- Changed files: `lib/inspections.ts`, `tests/inspection-storage.test.mjs`, and this audit. No UI layout or photo/AI changes.
+
 ## Sources
 
 - https://vercel.com/docs/functions/limitations

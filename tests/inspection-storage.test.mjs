@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import {test} from "node:test";
-import {normalizeInspection,saveInspections} from "../lib/inspections.ts";
+import {MAX_LOCAL_INSPECTIONS,normalizeInspection,saveInspections,serializeInspections,upsertInspection} from "../lib/inspections.ts";
 
 function withStorage(raw,run,{readError=false,writeError=false}={}){
   const priorWindow=Object.getOwnPropertyDescriptor(globalThis,"window");
@@ -20,6 +20,36 @@ function withStorage(raw,run,{readError=false,writeError=false}={}){
 const inspection=normalizeInspection({version:1,id:"test",created_at:"2026-09-09T00:00:00Z",updated_at:"2026-09-09T00:00:00Z",
   customer:{id:"customer"},property:{id:"property",customer_id:"customer"},technician:{id:"tech"},systems:[]});
 assert.ok(inspection);
+
+test("51st inspection is rejected without silently evicting unsigned history",()=>{
+  const full=Array.from({length:MAX_LOCAL_INSPECTIONS},(_,index)=>({...inspection,id:`inspection-${index}`}));
+  const before=JSON.stringify(full),newInspection={...inspection,id:"new-inspection"};
+  assert.throws(()=>upsertInspection(full,newInspection),/50-inspection limit/);
+  assert.equal(JSON.stringify(full),before);
+  assert.throws(()=>serializeInspections([...full,newInspection]),/50-inspection limit/);
+  withStorage(before,state=>{
+    assert.throws(()=>saveInspections([...full,newInspection]),/50-inspection limit/);
+    assert.deepEqual(state(),{stored:before,writes:0});
+  });
+});
+
+test("existing inspections remain editable at capacity and the 50th record saves",()=>{
+  const full=Array.from({length:MAX_LOCAL_INSPECTIONS},(_,index)=>({...inspection,id:`inspection-${index}`}));
+  const updated={...full[0],updated_at:"2026-09-10T00:00:00.000Z"};
+  const next=upsertInspection(full,updated,full[0]);
+  assert.equal(next.length,MAX_LOCAL_INSPECTIONS);
+  assert.deepEqual(new Set(next.map(item=>item.id)),new Set(full.map(item=>item.id)));
+  withStorage(JSON.stringify(full),state=>{
+    saveInspections(next);
+    assert.equal(JSON.parse(state().stored)[0].updated_at,updated.updated_at);
+    assert.equal(JSON.parse(state().stored).length,MAX_LOCAL_INSPECTIONS);
+  });
+  const partial=full.slice(0,-1),last=full.at(-1);
+  withStorage(JSON.stringify(partial),state=>{
+    saveInspections(upsertInspection(partial,last));
+    assert.equal(JSON.parse(state().stored).length,MAX_LOCAL_INSPECTIONS);
+  });
+});
 
 test("unreadable or malformed inspection storage cannot be overwritten",()=>{
   for(const raw of ["", "broken JSON", "null", "{}", '[{"id":"incomplete"}]',JSON.stringify([inspection,{id:"broken"}]),JSON.stringify([inspection,inspection])]){

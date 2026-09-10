@@ -228,9 +228,14 @@ export function parseInspections(serialized:string):Inspection[]{
 }
 
 export function serializeInspections(inspections:Inspection[]):string{
+  assertInspectionCapacity(inspections.length);
   const safe=inspections.map(normalizeInspection).filter((item):item is Inspection=>item!==null)
-    .sort((a,b)=>Date.parse(b.updated_at)-Date.parse(a.updated_at)).slice(0,MAX_LOCAL_INSPECTIONS);
+    .sort((a,b)=>Date.parse(b.updated_at)-Date.parse(a.updated_at));
   return JSON.stringify(safe);
+}
+
+function assertInspectionCapacity(count:number){
+  if(count>MAX_LOCAL_INSPECTIONS)throw new Error(`This device has reached its ${MAX_LOCAL_INSPECTIONS}-inspection limit. The new inspection was not saved, and existing inspections were preserved. You can still update existing inspections. Keep this page open and copy any unsaved setup details. Do not clear browser data to make room.`);
 }
 
 export function loadInspections():Inspection[]{
@@ -270,7 +275,8 @@ export function upsertInspection(inspections:Inspection[],incoming:Inspection,ex
     }
   }
   const next=[normalized,...inspections.filter(item=>item.id!==normalized.id)]
-    .sort((a,b)=>Date.parse(b.updated_at)-Date.parse(a.updated_at)).slice(0,MAX_LOCAL_INSPECTIONS);
+    .sort((a,b)=>Date.parse(b.updated_at)-Date.parse(a.updated_at));
+  assertInspectionCapacity(next.length);
   validateInspectionCollectionUpdate(inspections,next);
   return next;
 }
