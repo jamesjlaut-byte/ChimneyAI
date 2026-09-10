@@ -177,6 +177,13 @@ GitHub main was checked read-only and remained at `94b698fae9e692d88046d9db07ec4
 - Regression coverage checks malformed replacement, mixed valid/invalid input, and duplicate identities through both serialization and the actual save function with simulated storage. All failures preserve the exact previous storage string. This does not establish physical-device acceptance or reject every malformed nested field that the existing normalizer repairs.
 - Changed files: `lib/inspections.ts`, `tests/inspection-storage.test.mjs`, and this audit. Inspection note/status recovery behavior is unchanged.
 
+## Active Pro draft overwrite protection — 2026-09-10
+
+- A malformed or unreadable Pro draft previously loaded as absent, permitting empty-chat autosave to remove it or a new question to replace it. Automatic saves and clears now verify the stored draft first and report that saving is paused when it cannot be read safely.
+- Explicit confirmed discard remains available. Its storage removal must succeed before the current conversation, attachments, or request state are reset; failure leaves the active work intact.
+- Three regression tests exercise malformed JSON, unsupported versions, access denial, valid/missing draft saves, intentional discard, failed removal, and confirmation/reset wiring. These use simulated storage and static component checks, not browser fault injection or physical-phone acceptance. Existing permissive field normalization remains unchanged; this is not full corruption repair or cross-tab concurrency control.
+- Changed files: `lib/pro-draft.ts`, `components/ChimneyChat.tsx`, `tests/pro-draft-storage.test.mjs`, and this audit. No photo limits, inspection statuses, layout, or AI behavior changed.
+
 ## Sources
 
 - https://vercel.com/docs/functions/limitations

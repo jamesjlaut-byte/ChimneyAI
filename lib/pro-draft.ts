@@ -61,11 +61,24 @@ export function prepareProDraft(draft:Omit<ActiveProDraft,"version"|"saved_at">,
 
 export function saveProDraft(draft:Omit<ActiveProDraft,"version"|"saved_at">){
   if(typeof window==="undefined")return;
+  assertStoredDraftReadable();
   const value=prepareProDraft(draft);
   localStorage.setItem(KEY,JSON.stringify(value));
   return value.saved_at;
 }
 
-export function clearProDraft(){
-  if(typeof window!=="undefined")localStorage.removeItem(KEY);
+function assertStoredDraftReadable(){
+  try{
+    const raw=localStorage.getItem(KEY);
+    if(raw!==null&&!parseProDraft(JSON.parse(raw)))throw new Error("Invalid draft");
+  }catch{
+    throw new Error("The stored Pro draft could not be safely read. Automatic saving is paused to preserve it. Keep this page open and copy new notes. Do not clear browser data; use Discard draft only if you intend to delete the stored draft.");
+  }
+}
+
+export function clearProDraft(options?:{confirmedDiscard:boolean}){
+  if(typeof window!=="undefined"){
+    if(!options?.confirmedDiscard)assertStoredDraftReadable();
+    localStorage.removeItem(KEY);
+  }
 }

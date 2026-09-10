@@ -77,8 +77,8 @@ export default function ChimneyChat({mode}:{mode:Mode}){
         if(!isMeaningfulProDraft(draft)){clearProDraft();setDraftStatus("");return}
         saveProDraft(draft);
         setDraftStatus(current=>current.startsWith("Recovered")?current:"Draft saved on this device.");
-      }catch{
-        setDraftStatus("Draft could not be saved in this browser. Keep this page open and save an important case manually.");
+      }catch(error){
+        setDraftStatus(error instanceof Error?error.message:"Draft could not be saved in this browser. Keep this page open and save an important case manually.");
       }
     },600);
     return()=>window.clearTimeout(timer);
@@ -262,8 +262,10 @@ export default function ChimneyChat({mode}:{mode:Mode}){
   function discardActiveDraft(){
     if(preparing){setAttachmentStatus("Wait for photo preparation to finish before discarding this draft.");return}
     if(!window.confirm("Discard the active Pro draft on this device? Saved Pro Cases and Source File Vault bytes will not be deleted."))return;
+    try{clearProDraft({confirmedDiscard:true})}
+    catch{setDraftStatus("The stored draft could not be removed. The active conversation was kept. Keep this page open and copy important notes.");return}
     contextBoundary.invalidate();setVaultEpoch(value=>value+1);
-    requestRef.current?.controller.abort();requestRef.current=null;draftRef.current=null;setBusy(false);clearProDraft();
+    requestRef.current?.controller.abort();requestRef.current=null;draftRef.current=null;setBusy(false);
     attachmentsRef.current=[];setMessages([]);setText("");setAttachments([]);setAttachmentStatus("");setProSource(EMPTY_PRO_SOURCE);
     setManualVerification(EMPTY_MANUAL);setSourceFiles([]);setDraftStatus("");
   }
