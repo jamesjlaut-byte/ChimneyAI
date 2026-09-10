@@ -157,6 +157,13 @@ GitHub main was checked read-only and remained at `94b698fae9e692d88046d9db07ec4
 - Three regressions cover delayed photo/metadata completion, current-context validity, repeated invalidation, and component wiring. These are deterministic async/unit and source-wiring tests, not timed browser-race or physical-iPhone acceptance tests. Photo settings, request limits, prompts, and layout are unchanged.
 - Changed files: `components/ChimneyChat.tsx`, `components/SourceManifest.tsx`, `lib/chat-context-boundary.ts`, `tests/chat-context-boundary.test.mjs`, and this audit.
 
+## Inspection storage write protection — 2026-09-09
+
+- Tolerant inspection loading returns an empty list when browser storage is unreadable or malformed. Saves previously used that fallback as their baseline, potentially replacing data that had not actually been read.
+- Saves now independently read and validate the existing collection before writing. Read errors, malformed JSON, invalid records, duplicate identities, and collections beyond the supported limit stop the write with recovery guidance. Missing storage remains a valid first-save state; valid existing collections retain the existing transition checks.
+- Regression tests simulate read denial, malformed and partially invalid collections, duplicate IDs, first saves, valid updates, and quota failure. They assert that failed saves do not overwrite the original storage string. This is not automatic corruption repair, cross-tab locking, cloud backup, or physical-device acceptance.
+- Changed files: `lib/inspections.ts`, `tests/inspection-storage.test.mjs`, and this audit. No UI, photo pipeline, or AI behavior changes.
+
 ## Sources
 
 - https://vercel.com/docs/functions/limitations

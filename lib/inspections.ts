@@ -242,7 +242,20 @@ export function loadInspections():Inspection[]{
 export function saveInspections(inspections:Inspection[]){
   if(typeof window==="undefined")return;
   const serialized=serializeInspections(inspections),safe=parseInspections(serialized);
-  validateInspectionCollectionUpdate(loadInspections(),safe);
+  // Tolerant display loading must never authorize replacing unreadable records.
+  let existing:Inspection[];
+  try{
+    const raw=localStorage.getItem(STORAGE_KEY);
+    const parsed:unknown=raw===null?[]:JSON.parse(raw);
+    if(!Array.isArray(parsed)||parsed.length>MAX_LOCAL_INSPECTIONS)throw new Error("Invalid collection");
+    const normalized=parsed.map(normalizeInspection);
+    if(normalized.some(item=>item===null))throw new Error("Invalid inspection");
+    existing=normalized.filter((item):item is Inspection=>item!==null);
+    if(new Set(existing.map(item=>item.id)).size!==existing.length)throw new Error("Duplicate inspection identities");
+  }catch{
+    throw new Error("Existing inspection storage could not be safely read. Nothing was overwritten. Keep this page open, copy any unsaved notes, and recover the stored data before trying again. Do not clear browser data.");
+  }
+  validateInspectionCollectionUpdate(existing,safe);
   try{localStorage.setItem(STORAGE_KEY,serialized)}
   catch{throw new Error("Browser storage is full or unavailable. Inspection data was not removed; keep this page open and export important work.")}
 }
