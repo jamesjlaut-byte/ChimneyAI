@@ -21,6 +21,17 @@ const inspection=normalizeInspection({version:1,id:"test",created_at:"2026-09-09
   customer:{id:"customer"},property:{id:"property",customer_id:"customer"},technician:{id:"tech"},systems:[]});
 assert.ok(inspection);
 
+test("invalid incoming collections fail atomically instead of dropping records",()=>{
+  const raw=JSON.stringify([inspection]);
+  for(const incoming of [[{id:inspection.id}],[inspection,{id:"broken"}],[inspection,inspection]]){
+    assert.throws(()=>serializeInspections(incoming),/collection was not saved/);
+    withStorage(raw,state=>{
+      assert.throws(()=>saveInspections(incoming),/collection was not saved/);
+      assert.deepEqual(state(),{stored:raw,writes:0});
+    });
+  }
+});
+
 test("51st inspection is rejected without silently evicting unsigned history",()=>{
   const full=Array.from({length:MAX_LOCAL_INSPECTIONS},(_,index)=>({...inspection,id:`inspection-${index}`}));
   const before=JSON.stringify(full),newInspection={...inspection,id:"new-inspection"};

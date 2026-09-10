@@ -170,6 +170,13 @@ GitHub main was checked read-only and remained at `94b698fae9e692d88046d9db07ec4
 - Two regressions cover rejected 51st-record upserts, direct serialization and persistence, unchanged original storage, updates at capacity, and the 49-to-50 boundary. These use simulated storage, not a physical-device test. The capacity remains 50; this does not add cloud archival or a deletion workflow.
 - Changed files: `lib/inspections.ts`, `tests/inspection-storage.test.mjs`, and this audit. No UI layout or photo/AI changes.
 
+## Reject invalid incoming inspection collections — 2026-09-10
+
+- Serialization previously filtered out invalid incoming inspection records. A malformed replacement could therefore remove a previously valid unsigned inspection during a save. Duplicate incoming identities could also be persisted, making subsequent safe reads fail.
+- Serialization now rejects the entire incoming collection if any record fails normalization or if normalized IDs repeat. Storage is untouched on either failure; existing field normalization and valid saves are unchanged.
+- Regression coverage checks malformed replacement, mixed valid/invalid input, and duplicate identities through both serialization and the actual save function with simulated storage. All failures preserve the exact previous storage string. This does not establish physical-device acceptance or reject every malformed nested field that the existing normalizer repairs.
+- Changed files: `lib/inspections.ts`, `tests/inspection-storage.test.mjs`, and this audit. Inspection note/status recovery behavior is unchanged.
+
 ## Sources
 
 - https://vercel.com/docs/functions/limitations

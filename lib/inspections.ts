@@ -229,8 +229,11 @@ export function parseInspections(serialized:string):Inspection[]{
 
 export function serializeInspections(inspections:Inspection[]):string{
   assertInspectionCapacity(inspections.length);
-  const safe=inspections.map(normalizeInspection).filter((item):item is Inspection=>item!==null)
+  const normalized=inspections.map(normalizeInspection);
+  if(normalized.some(item=>item===null))throw new Error("An inspection record is invalid. The collection was not saved; existing inspection data was preserved.");
+  const safe=normalized.filter((item):item is Inspection=>item!==null)
     .sort((a,b)=>Date.parse(b.updated_at)-Date.parse(a.updated_at));
+  if(new Set(safe.map(item=>item.id)).size!==safe.length)throw new Error("Duplicate inspection identities were found. The collection was not saved; existing inspection data was preserved.");
   return JSON.stringify(safe);
 }
 
