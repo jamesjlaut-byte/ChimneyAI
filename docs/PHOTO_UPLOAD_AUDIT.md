@@ -184,6 +184,14 @@ GitHub main was checked read-only and remained at `94b698fae9e692d88046d9db07ec4
 - Three regression tests exercise malformed JSON, unsupported versions, access denial, valid/missing draft saves, intentional discard, failed removal, and confirmation/reset wiring. These use simulated storage and static component checks, not browser fault injection or physical-phone acceptance. Existing permissive field normalization remains unchanged; this is not full corruption repair or cross-tab concurrency control.
 - Changed files: `lib/pro-draft.ts`, `components/ChimneyChat.tsx`, `tests/pro-draft-storage.test.mjs`, and this audit. No photo limits, inspection statuses, layout, or AI behavior changed.
 
+## Multipart boundary verification — 2026-09-15
+
+- Correction to the earlier uncommitted audit: no failure of the 4 KiB estimation allowance was demonstrated. The encoder already measures the completed multipart Blob and rejects oversized bodies before transmission. The proposed 16 KiB allowance was withdrawn; production upload behavior is unchanged.
+- Added behavioral tests for an actual 4,000,000-byte multipart body accepted by encoder and decoder, a one-byte-over body rejected by the encoder, and a six-photo round trip with Unicode metadata and varied base64 padding. The latter checks that the existing estimate exceeds measured wire size.
+- The exact transport-boundary test exposed a V8 stack overflow in the schema's repeated base64 regex. Replaced that regex with an early length bound, a short header match, padding/length checks, and a character scan. Oversized viewing copies now return validation failure rather than throwing; the existing per-image schema ceiling is unchanged.
+- Added malformed padding, trailing whitespace, large malformed input, and oversized image validation coverage. These tests exercise Node's FormData serialization. They do not establish Safari/Chrome framing or physical-iPhone acceptance.
+- Changed files: `lib/chat-request.ts`, `tests/chat-upload.test.mjs`, and this audit. The earlier uncommitted `lib/chat-upload.ts` change has been removed.
+
 ## Sources
 
 - https://vercel.com/docs/functions/limitations

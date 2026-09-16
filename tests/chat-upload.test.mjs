@@ -16,6 +16,39 @@ test("six binary photo uploads survive multipart transport without base64 overhe
   assert.deepEqual(decoded,payload);
 });
 
+test("multipart encoder enforces the actual 4 MB boundary before transmission",async()=>{
+  const payload=bytes=>({mode:"pro",messages:[{role:"user",content:"Boundary test"}],attachments:[{
+    kind:"image",name:"photo.jpg",mime_type:"image/jpeg",data_url:`data:image/jpeg;base64,${Buffer.alloc(bytes,42).toString("base64")}`
+  }]});
+  const sample=await encodeChatUpload(payload(3));
+  const framing=sample.body.size-3;
+  const exact=await encodeChatUpload(payload(MAX_CHAT_REQUEST_BYTES-framing));
+  assert.equal(exact.body.size,MAX_CHAT_REQUEST_BYTES);
+  const decoded=await decodeChatUpload(new Request("http://localhost/api/chat",{method:"POST",headers:{"content-type":exact.contentType},body:exact.body}));
+  // Transport accepts this body; the separate per-image schema ceiling rejects it safely.
+  assert.equal(parseChatRequest(decoded).success,false);
+  await assert.rejects(encodeChatUpload(payload(MAX_CHAT_REQUEST_BYTES-framing+1)),/transmission budget/);
+});
+
+test("image schema validates base64 padding and rejects malformed input without throwing",()=>{
+  const parse=data_url=>parseChatRequest({mode:"pro",messages:[{role:"user",content:"Test"}],attachments:[{kind:"image",name:"photo.jpg",mime_type:"image/jpeg",data_url}]});
+  for(const encoded of ["YQ==","YWI=","YWJj","+/8="])assert.equal(parse(`data:image/jpeg;base64,${encoded}`).success,true);
+  for(const encoded of ["","A","AAA","====","A===","AA=A","AA==AAAA","YW Jj","YWJj\n"])assert.equal(parse(`data:image/jpeg;base64,${encoded}`).success,false);
+  assert.equal(parse(`data:image/jpeg;base64,${"A".repeat(5_400_000)}`).success,false);
+  assert.equal(parse(`data:image/jpeg;base64,${"A".repeat(4_400_000)}!`).success,false);
+});
+
+test("six photos with Unicode metadata remain below the client estimate",async()=>{
+  const payload={mode:"pro",messages:[{role:"user",content:"Inspect cheminée 🧱\n".repeat(100)}],attachments:Array.from({length:6},(_,i)=>({
+    kind:"image",name:`煙突-${i}-🧱.jpg`,mime_type:"image/jpeg",data_url:`data:image/jpeg;base64,${Buffer.alloc(550000+i,42).toString("base64")}`
+  }))};
+  const upload=await encodeChatUpload(payload);
+  assert.ok(estimateChatUploadBytes(payload)>=upload.body.size);
+  assert.ok(estimateChatUploadBytes(payload)<MAX_CHAT_REQUEST_BYTES);
+  const decoded=await decodeChatUpload(new Request("http://localhost/api/chat",{method:"POST",headers:{"content-type":upload.contentType},body:upload.body}));
+  assert.deepEqual(decoded,payload);
+});
+
 test("optimized image fingerprint describes transmitted bytes, not original",async()=>{
   const bytes=Buffer.from([255,216,255,217]);
   const photo={kind:"image",name:"phone.heic",mime_type:"image/jpeg",image_optimized:true,byte_size:bytes.length,sha256:createHash("sha256").update(bytes).digest("hex"),original_byte_size:12*1024*1024,original_sha256:"a".repeat(64),original_mime_type:"image/heic",data_url:`data:image/jpeg;base64,${bytes.toString("base64")}`};

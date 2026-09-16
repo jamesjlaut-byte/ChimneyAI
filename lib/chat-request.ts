@@ -5,6 +5,18 @@ import {SUPPORTED_PHOTO_MIME_TYPES} from "./photo-type.ts";
 
 export const MAX_CHAT_REQUEST_BYTES=4_000_000;
 
+const MAX_IMAGE_DATA_URL_LENGTH=4_400_100;
+function validImageDataUrl(value:string){
+  // Bound work before scanning; repeated base64 regex groups can exhaust V8's stack.
+  if(value.length>MAX_IMAGE_DATA_URL_LENGTH)return false;
+  const header=/^data:image\/(?:jpeg|png|webp|gif);base64,/i.exec(value);
+  if(!header)return false;
+  const encoded=value.slice(header[0].length);
+  if(!encoded.length||encoded.length%4!==0)return false;
+  const padding=encoded.endsWith("==")?2:encoded.endsWith("=")?1:0;
+  return !/[^a-z0-9+/]/i.test(encoded.slice(0,encoded.length-padding));
+}
+
 const AttachmentMetadata={
   name:z.string().max(240),
   id:z.string().max(100).optional(),
@@ -24,7 +36,7 @@ const Attachment=z.discriminatedUnion("kind",[
     original_byte_size:z.number().int().positive().max(50*1024*1024).optional(),
     original_sha256:z.string().regex(/^[a-f0-9]{64}$/i).optional(),
     mime_type:z.enum(["image/jpeg","image/png","image/webp","image/gif"]),
-    data_url:z.string().max(4_400_100).regex(/^data:image\/(?:jpeg|png|webp|gif);base64,(?=[a-z0-9+/])(?:[a-z0-9+/]{4})*(?:[a-z0-9+/]{2}==|[a-z0-9+/]{3}=)?$/i)
+    data_url:z.string().max(MAX_IMAGE_DATA_URL_LENGTH).refine(validImageDataUrl,"Invalid image data URL")
   }).strict(),
   z.object({
     ...AttachmentMetadata,
