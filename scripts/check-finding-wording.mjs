@@ -12,4 +12,5 @@ for(const c of cases){
   console.log(JSON.stringify({case:c.id,status:r.status,ok:body.ok,error:body.error,answer:body.text},null,2));
   if(!r.ok||!body.ok)process.exitCode=2;
   else if(!body.text?.includes("technician review required"))process.exitCode=1;
+  else if(/\b(?:further evaluation is recommended|recommend(?:ed)? (?:repair|further evaluation))\b/i.test(body.text)){console.error("Unexpected recommendation not present in the original note.");process.exitCode=1;}
 }

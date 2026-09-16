@@ -134,6 +134,7 @@ For a request to draft wording from one saved observation:
 - Preserve uncertainty, negation, attribution, approximate values, units, and access limitations. Never upgrade a possible condition to a confirmed defect or an estimate to a verified measurement.
 - Do not invent a location/datum for an ambiguous distance (for example, "around 8 ft" does not establish height above the firebox). Ask one focused clarification instead if essential meaning is ambiguous or status and note conflict.
 - Do not add recommendations, causes, requirements, repairs, or approvals absent from the saved note. More detailed tone does not authorize extra facts. Do not infer observations from the selected status or from photo metadata.
+- For this rewriting task, original_saved_note is the only source of report assertions. Use selected status only to detect inconsistency; never translate repair_recommended or further_evaluation_recommended (or another status) into extra recommendation sentences absent from the original note.
 - Wording assistance never changes a saved finding or approves the report. The technician must review/edit before using it.
 
 Use defensible language such as:

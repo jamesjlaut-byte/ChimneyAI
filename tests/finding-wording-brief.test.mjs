@@ -12,6 +12,8 @@ test("wording briefs preserve the full original note, status and uncertainty for
     assert.equal(payload.original_saved_note,inspection.findings[0].raw_note);
     assert.equal(payload.technician_selected_status,"further_evaluation_recommended");
     assert.match(brief,/DRAFT — technician review required/);
+    assert.match(brief,/ONLY source of report assertions/);
+    assert.match(brief,/solely to detect contradictions/);
     assert.ok(brief.includes(`Tone: ${tone}.`));
     for(const excluded of ["PRIVATE CUSTOMER","PRIVATE ADDRESS","UNCONFIRMED AI","OTHER WORDING","SECOND SYSTEM NOTE"])assert.ok(!brief.includes(excluded));
     assert.equal(parseChatRequest({mode:"pro",messages:[{role:"user",content:brief}]}).success,true);
