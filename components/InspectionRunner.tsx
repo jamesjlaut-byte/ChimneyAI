@@ -3,7 +3,7 @@ import {useEffect,useMemo,useRef,useState,type FormEvent} from "react";
 import InspectionPhotoCapture from "@/components/InspectionPhotoCapture";
 import {firstIncompleteChecklistIndex,getInspectionChecklist,missingChecklistItems} from "@/lib/inspection-checklists";
 import {recommendedPhotoGaps} from "@/lib/inspection-photo";
-import {inspectionNoteDraftKey,loadInspectionNoteDraft,MAX_DRAFT_NOTE_LENGTH} from "@/lib/inspection-note-draft";
+import {inspectionNoteDraftKey,loadInspectionNoteDraft,saveInspectionComponentDraft,MAX_DRAFT_NOTE_LENGTH,type InspectionNoteDraft} from "@/lib/inspection-note-draft";
 import {loadInspections,normalizeInspection,saveInspections,upsertInspection,type FindingStatus,type Inspection} from "@/lib/inspections";
 
 const STATUS_OPTIONS:ReadonlyArray<{value:FindingStatus;label:string}>=[
@@ -21,7 +21,7 @@ export default function InspectionRunner({inspection,onChange,onDirtyChange}:{in
     const draftStep=draft?checklist.findIndex(item=>item.id===draft.component):-1;
     return draftStep>=0?draftStep:firstIncompleteChecklistIndex(checklist,inspection.findings.filter(finding=>finding.system_id===system?.id).map(finding=>finding.component));
   }),[findingStatus,setFindingStatus]=useState<FindingStatus|"">(""),[note,setNote]=useState(""),[message,setMessage]=useState("");
-  const [conflictingDraft,setConflictingDraft]=useState<string|null>(null);
+  const [conflictingDraft,setConflictingDraft]=useState<InspectionNoteDraft|null>(null);
   const current=checklist[step];
   const existing=current&&system?inspection.findings.find(finding=>finding.system_id===system.id&&finding.component===current.id):undefined;
   const noteBase=JSON.stringify([existing?.id||"",existing?.updated_at||"",existing?.status||"",existing?.raw_note||""]);
@@ -48,18 +48,16 @@ export default function InspectionRunner({inspection,onChange,onDirtyChange}:{in
     setConflictingDraft(null);
     const draft=system?.id?loadInspectionNoteDraft(inspection.id,system.id):null;
     if(draft?.component===current?.id){
-      if(draft.base===noteBase){setNote(draft.note);setMessage("Recovered an unsaved note from this tab. Review it and save the component.")}
-      else{setConflictingDraft(draft.note);setMessage("The saved finding changed. Your older draft is shown below and was not applied.")}
+      if(draft.base===noteBase){setNote(draft.note);if(draft.version===2)setFindingStatus(draft.status);setMessage("Recovered an unsaved component draft from this tab. Review the note and status, then save the component.")}
+      else{setConflictingDraft(draft);setMessage("The saved finding changed. Your older draft is shown below and was not applied.")}
     }
   },[existing?.id,existing?.status,existing?.raw_note,current?.id,inspection.id,system?.id,noteBase]);
 
-  function editNote(value:string){
-    setNote(value);
+  function editComponent(nextNote:string,nextStatus:FindingStatus|""){
+    setNote(nextNote);setFindingStatus(nextStatus);
     if(!system||!current)return;
     try{
-      const key=inspectionNoteDraftKey(inspection.id,system.id);
-      if(value===(existing?.raw_note||""))sessionStorage.removeItem(key);
-      else sessionStorage.setItem(key,JSON.stringify({version:1,inspectionId:inspection.id,systemId:system.id,component:current.id,base:noteBase,note:value}));
+      saveInspectionComponentDraft(sessionStorage,{version:2,inspectionId:inspection.id,systemId:system.id,component:current.id,base:noteBase,note:nextNote,status:nextStatus},{note:existing?.raw_note||"",status:existing?.status||""});
     }catch{setMessage("Tab draft storage is unavailable. Keep this page open and save the component before leaving.")}
   }
 
@@ -112,10 +110,10 @@ export default function InspectionRunner({inspection,onChange,onDirtyChange}:{in
     <form onSubmit={saveFinding}>
       <div className="inspectionStepMeta"><span>Step {step+1} of {checklist.length}</span>{current.photoRecommended?<em>Photo recommended</em>:<em>Photo optional</em>}</div>
       <h3 ref={componentHeading} tabIndex={-1}>{current.label}</h3>
-      <fieldset><legend>Technician-selected status</legend><div className="inspectionStatusGrid">{STATUS_OPTIONS.map(option=><label key={option.value} className={findingStatus===option.value?"selected":""}><input required type="radio" name={`status-${current.id}`} value={option.value} checked={findingStatus===option.value} onChange={()=>setFindingStatus(option.value)} /><span>{option.label}</span></label>)}</div></fieldset>
-      <label className="inspectionNote">Field note<textarea rows={3} maxLength={MAX_DRAFT_NOTE_LENGTH} value={note} onChange={event=>editNote(event.target.value)} placeholder="Record only what you observed. Voice entry is available from your phone keyboard." /></label>
-      {conflictingDraft!==null?<label className="inspectionNote">Older unsaved note — not applied<textarea readOnly rows={3} value={conflictingDraft}/></label>:null}
-      <p>Note drafts can recover after a reload in this tab. They are not saved findings; closing the tab or clearing browser data may remove them. Status selections still require Save.</p>
+      <fieldset><legend>Technician-selected status</legend><div className="inspectionStatusGrid">{STATUS_OPTIONS.map(option=><label key={option.value} className={findingStatus===option.value?"selected":""}><input required type="radio" name={`status-${current.id}`} value={option.value} checked={findingStatus===option.value} onChange={()=>editComponent(note,option.value)} /><span>{option.label}</span></label>)}</div></fieldset>
+      <label className="inspectionNote">Field note<textarea rows={3} maxLength={MAX_DRAFT_NOTE_LENGTH} value={note} onChange={event=>editComponent(event.target.value,findingStatus)} placeholder="Record only what you observed. Voice entry is available from your phone keyboard." /></label>
+      {conflictingDraft!==null?<div><label className="inspectionNote">Older unsaved note — not applied<textarea readOnly rows={3} value={conflictingDraft.note}/></label>{conflictingDraft.version===2?<p>Older status — not applied: {STATUS_OPTIONS.find(option=>option.value===conflictingDraft.status)?.label||"No status selected"}</p>:null}</div>:null}
+      <p>Notes and status selections can recover after a reload in this tab. They remain unsaved drafts until you press Save; closing the tab or clearing browser data may remove them.</p>
       <div className="inspectionRunnerActions"><button type="button" disabled={step===0} onClick={()=>goToStep(step-1)}>Previous</button><span role="status" aria-live="polite">{hasUnsavedChanges?"Unsaved changes — save this component before leaving. ":""}{message}</span><button type="submit" disabled={!findingStatus}>{step===checklist.length-1?"Save component":"Save & next"}</button></div>
     </form>
     <InspectionPhotoCapture inspection={inspection} finding={existing} component={current.id} label={current.label} onChange={onChange}/>
