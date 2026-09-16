@@ -54,6 +54,7 @@ export default function ChimneyChat({mode}:{mode:Mode}){
   const uploadOverBudget=estimatedUploadBytes>MAX_CHAT_REQUEST_BYTES;
   const [draftReady,setDraftReady]=useState(mode!=="pro"),[draftStatus,setDraftStatus]=useState("");
   const inputRef=useRef<HTMLInputElement>(null),attachmentsRef=useRef(attachments);
+  const questionRef=useRef<HTMLTextAreaElement>(null);
   const requestRef=useRef<{id:number;controller:AbortController}|null>(null),nextRequestId=useRef(0);
   const draftRef=useRef<Parameters<typeof saveProDraft>[0]|null>(null);
   const starters=useMemo(()=>mode==="pro"?starterPro:starterHomeowner,[mode]);
@@ -264,6 +265,17 @@ export default function ChimneyChat({mode}:{mode:Mode}){
     attachmentsRef.current=[];setMessages([]);setText("");setAttachments([]);setAttachmentStatus("");
   }
 
+  function prepareInspectionBrief(brief:string){
+    if(preparing||busy){setAttachmentStatus("Wait for the current photo preparation or AI response before preparing an inspection question.");return false}
+    // Called only by the explicit replacement confirmation in InspectionSetup.
+    contextBoundary.invalidate();setVaultEpoch(value=>value+1);
+    attachmentsRef.current=[];setAttachments([]);setMessages([]);setSourceFiles([]);
+    setProSource(EMPTY_PRO_SOURCE);setManualVerification(EMPTY_MANUAL);setText(brief);
+    setAttachmentStatus("Saved inspection brief prepared—not sent. Review the notes for private information. Photo records are counts only; attach relevant photos if needed.");
+    questionRef.current?.focus();questionRef.current?.scrollIntoView({block:"center",behavior:"smooth"});
+    return true;
+  }
+
   function discardActiveDraft(){
     if(preparing){setAttachmentStatus("Wait for photo preparation to finish before discarding this draft.");return}
     if(!window.confirm("Discard the active Pro draft on this device? Saved Pro Cases and Source File Vault bytes will not be deleted."))return;
@@ -308,7 +320,7 @@ export default function ChimneyChat({mode}:{mode:Mode}){
         <button type="button" onClick={()=>setText("Second-look these field photos. Separate visible observations, possible concerns, what cannot be determined, and what I should verify/document onsite.")}>Technical photo second-look</button>
         <button type="button" onClick={()=>setText("Create a concise technical research summary from the current case. Separate: appliance identity, controlling source, verified manual identity/revision, known field facts, source requirements, unresolved conflicts/missing information, and suggested objective report language. Do not add facts that are not in the case.")}>Build research summary</button>
       </div>}
-      <textarea aria-label={mode==="pro"?"Technical question or field documentation":"Chimney or fireplace question"} value={text} maxLength={20_000} onChange={e=>setText(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey&&!e.nativeEvent.isComposing){e.preventDefault();send();}}}
+      <textarea ref={questionRef} aria-label={mode==="pro"?"Technical question or field documentation":"Chimney or fireplace question"} value={text} maxLength={20_000} onChange={e=>setText(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey&&!e.nativeEvent.isComposing){e.preventDefault();send();}}}
         placeholder={mode==="pro"?"Ask a technical question, or attach field documentation…":"Ask a question, or attach your report/photo…"} rows={3}/>
       <div className="composerActions"><button className="attachBtn" type="button" disabled={busy||preparing} onClick={()=>inputRef.current?.click()}>＋ Attach</button>
         <input ref={inputRef} hidden type="file" multiple disabled={busy||preparing} accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif,image/heic-sequence,image/heif-sequence,image/x-heic,image/x-heif,.jpg,.jpeg,.png,.webp,.gif,.heic,.heif,.pdf,.txt,.md,.csv" onChange={e=>addFiles(e.target.files)}/>
@@ -317,7 +329,7 @@ export default function ChimneyChat({mode}:{mode:Mode}){
     </div>
   </div>
   {mode==="pro"&&<div className="proWorkspaceStack">
-    <InspectionSetup/>
+    <InspectionSetup onPrepareAiBrief={prepareInspectionBrief}/>
     <section className="evidenceReadiness" aria-label="Professional evidence readiness">
       <div className="evidenceReadinessHead"><b>Evidence readiness</b><span>No confidence score—only documented, partial, or needed evidence.</span></div>
       <div className="evidenceChecks">{evidenceChecks.map(check=><div className={`evidenceCheck ${check.state}`} key={check.label}>

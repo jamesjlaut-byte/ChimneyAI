@@ -40,3 +40,17 @@ test("all destructive context transitions invalidate the vault only after confir
   assert.match(chat,/if\(isCurrentVaultContext\(\)\)setSourceFiles\(records\)/);
   assert.match(chat,/isCurrentVaultContext\(\)\?attachFromVault\(attachment\):"stale"/);
 });
+
+test("inspection briefs wait for idle chat and reset old job context without auto-sending",()=>{
+  const chat=readFileSync(new URL("../components/ChimneyChat.tsx",import.meta.url),"utf8");
+  const start=chat.indexOf("function prepareInspectionBrief("),fn=chat.slice(start,chat.indexOf("\n  }",start));
+  assert.match(fn,/if\(preparing\|\|busy\)/);
+  assert.ok(fn.indexOf("if(preparing||busy)")<fn.indexOf("contextBoundary.invalidate()"));
+  const setup=readFileSync(new URL("../components/InspectionSetup.tsx",import.meta.url),"utf8");
+  assert.match(setup,/confirmAiBrief\?<section aria-label="Confirm inspection question"/);
+  assert.match(setup,/onClick=\{\(\)=>setConfirmAiBrief\(false\)\}>Keep current chat/);
+  assert.match(setup,/Replace chat with inspection question/);
+  for(const reset of ["attachmentsRef.current=[]","setAttachments([])","setMessages([])","setSourceFiles([])","setProSource(EMPTY_PRO_SOURCE)","setManualVerification(EMPTY_MANUAL)"])assert.ok(fn.includes(reset));
+  assert.match(fn,/setText\(brief\)/);
+  assert.doesNotMatch(fn,/\bfetch\(|\bsend\(/);
+});

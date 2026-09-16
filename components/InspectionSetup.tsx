@@ -1,6 +1,7 @@
 "use client";
 import {useEffect,useState,type FormEvent} from "react";
 import InspectionRunner from "@/components/InspectionRunner";
+import {buildInspectionAiBrief} from "@/lib/inspection-ai-brief";
 import {INSPECTION_SCHEMA_VERSION,loadInspections,normalizeInspection,saveInspections,upsertInspection,type Inspection,type InspectionType,type SystemType} from "@/lib/inspections";
 
 const SYSTEM_OPTIONS:ReadonlyArray<{value:SystemType;label:string}>=[
@@ -16,13 +17,14 @@ const INSPECTION_OPTIONS:ReadonlyArray<{value:InspectionType;label:string}>=[
 function newId(prefix:string){return `${prefix}-${crypto.randomUUID()}`}
 function localDate(){const now=new Date(),month=String(now.getMonth()+1).padStart(2,"0"),day=String(now.getDate()).padStart(2,"0");return `${now.getFullYear()}-${month}-${day}`}
 
-export default function InspectionSetup(){
+export default function InspectionSetup({onPrepareAiBrief}:{onPrepareAiBrief?:(brief:string)=>boolean}){
   const [active,setActive]=useState<Inspection|null>(null),[status,setStatus]=useState("");
   const [technicianName,setTechnicianName]=useState(""),[firstName,setFirstName]=useState(""),[lastName,setLastName]=useState("");
   const [streetAddress,setStreetAddress]=useState(""),[city,setCity]=useState(""),[state,setState]=useState(""),[postalCode,setPostalCode]=useState("");
   const [systemName,setSystemName]=useState("Primary system"),[systemType,setSystemType]=useState<SystemType>("masonry_fireplace");
   const [inspectionType,setInspectionType]=useState<InspectionType>("level_1");
   const [componentDirty,setComponentDirty]=useState(false);
+  const [confirmAiBrief,setConfirmAiBrief]=useState(false);
 
   useEffect(()=>{
     const existing=loadInspections().find(item=>item.status==="draft"||item.status==="in_progress"||item.status==="ready_for_review");
@@ -74,5 +76,12 @@ export default function InspectionSetup(){
       <p>Browser-first draft. AI assists; the technician controls observations, findings, and final conclusions.</p>
     </form>
     {active?<InspectionRunner key={`${active.systems[0]?.id}:${active.systems[0]?.system_type}:${active.inspection_type}`} inspection={active} onChange={setActive} onDirtyChange={setComponentDirty}/>:null}
+    {active&&onPrepareAiBrief?<div className="inspectionSetupBody">
+      <p>Use this system’s saved setup, notes, and photo gaps to prepare a question. Review it before sending; photos are not attached automatically. Save edits first.</p>
+      {confirmAiBrief?<section aria-label="Confirm inspection question">
+        <p>This replaces the current chat, active attachments, Source Desk, manual context, and source manifest to avoid mixing jobs. Save the current Pro case and persist original photos you need first. Saved cases, inspections, and vault originals stay intact. Nothing is sent until you press Send.</p>
+        <div className="inspectionSetupActions"><button type="button" onClick={()=>setConfirmAiBrief(false)}>Keep current chat</button><button type="button" disabled={componentDirty} onClick={()=>{const brief=buildInspectionAiBrief(active);if(brief&&onPrepareAiBrief(brief)){setConfirmAiBrief(false);setStatus("Inspection question prepared in chat. Review the saved notes and press Send when ready.")}}}>Replace chat with inspection question</button></div>
+      </section>:<div className="inspectionSetupActions"><button type="button" disabled={componentDirty} onClick={()=>setConfirmAiBrief(true)}>Ask AI what to check next</button></div>}
+    </div>:null}
   </details>;
 }
