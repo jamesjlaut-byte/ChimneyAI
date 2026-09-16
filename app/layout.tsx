@@ -2,6 +2,7 @@ import "./globals.css";
 import type {Metadata} from "next";
 import AudienceNav from "@/components/AudienceNav";
 import SiteFooter from "@/components/SiteFooter";
+import SiteAnalytics from "@/components/SiteAnalytics";
 
 export const metadata:Metadata={
   metadataBase:new URL("https://chimney-ai.vercel.app"),
@@ -38,5 +39,6 @@ export default function RootLayout({children}:{children:React.ReactNode}){
     </header>
     {children}
     <SiteFooter/>
+    <SiteAnalytics/>
   </body></html>;
 }

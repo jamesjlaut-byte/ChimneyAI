@@ -25,6 +25,7 @@ import {MAX_IMAGE_BATCH_BYTES} from "@/lib/phone-image";
 import {normalizePhotoType} from "@/lib/photo-type";
 import {ChatRequestTimeoutError,withChatDeadline} from "@/lib/chat-deadline";
 import {createChatContextBoundary} from "@/lib/chat-context-boundary";
+import {trackChatUsage} from "@/lib/analytics";
 
 const InspectionSetup=dynamic(()=>import("@/components/InspectionSetup"),{ssr:false});
 
@@ -202,6 +203,7 @@ export default function ChimneyChat({mode}:{mode:Mode}){
     setMessages(next);setText("");setBusy(true);setAttachmentStatus("Uploading photos and question…");
     const controller=new AbortController(),requestId=++nextRequestId.current;
     requestRef.current={id:requestId,controller};
+    trackChatUsage("ai_submitted",mode);
     try{
       const {res,body}=await withChatDeadline(controller,async()=>{
         const res=await fetch("/api/chat",{method:"POST",headers:{"content-type":requestBody.contentType},body:requestBody.body,signal:controller.signal});
@@ -211,6 +213,7 @@ export default function ChimneyChat({mode}:{mode:Mode}){
       setAttachmentStatus("");
       if(requestRef.current?.id!==requestId)return;
       if(!res.ok||!body.ok){
+        trackChatUsage("ai_request_failed",mode);
         setText(current=>current||cleaned);
         const errorMessage=body.error==="openai_not_configured"
           ?"ChimneyAI is not connected to the model yet. Add the server API key to enable live answers."
@@ -229,9 +232,11 @@ export default function ChimneyChat({mode}:{mode:Mode}){
         return;
       }
       setMessages([...next,{role:"assistant",kind:"analysis",content:body.text||"I could not produce a response."}]);
+      trackChatUsage("ai_response_received",mode);
       if(currentAttachments.length)setAttachmentStatus(`${currentAttachments.length} active source attachment${currentAttachments.length===1?" remains":"s remain"} available for follow-up questions.`);
     }catch(error){
       if(requestRef.current?.id!==requestId||(controller.signal.aborted&&!(error instanceof ChatRequestTimeoutError)))return;
+      trackChatUsage("ai_request_failed",mode);
       setAttachmentStatus("");
       setText(current=>current||cleaned);
       setMessages([...markLastAttemptFailed(next),{role:"assistant",kind:"system_error",content:error instanceof ChatRequestTimeoutError?error.message:"ChimneyAI could not reach the service. Your attachments are still available—check your connection and try again."}]);
