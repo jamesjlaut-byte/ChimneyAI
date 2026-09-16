@@ -271,7 +271,7 @@ export default function ChimneyChat({mode}:{mode:Mode}){
     contextBoundary.invalidate();setVaultEpoch(value=>value+1);
     attachmentsRef.current=[];setAttachments([]);setMessages([]);setSourceFiles([]);
     setProSource(EMPTY_PRO_SOURCE);setManualVerification(EMPTY_MANUAL);setText(brief);
-    setAttachmentStatus("Saved inspection brief prepared—not sent. Review the notes for private information. Photo records are counts only; attach relevant photos if needed.");
+    setAttachmentStatus("Saved inspection question prepared—not sent. Review the notes for private information. No photos were attached automatically; attach relevant photos only if needed.");
     questionRef.current?.focus();questionRef.current?.scrollIntoView({block:"center",behavior:"smooth"});
     return true;
   }

@@ -1,7 +1,8 @@
 "use client";
-import {useEffect,useState,type FormEvent} from "react";
+import {useEffect,useRef,useState,type FormEvent} from "react";
 import InspectionRunner from "@/components/InspectionRunner";
 import {buildInspectionAiBrief} from "@/lib/inspection-ai-brief";
+import {buildFindingWordingBrief,WORDING_TONES,type WordingTone} from "@/lib/finding-wording-brief";
 import {INSPECTION_SCHEMA_VERSION,loadInspections,normalizeInspection,saveInspections,upsertInspection,type Inspection,type InspectionType,type SystemType} from "@/lib/inspections";
 
 const SYSTEM_OPTIONS:ReadonlyArray<{value:SystemType;label:string}>=[
@@ -25,6 +26,20 @@ export default function InspectionSetup({onPrepareAiBrief}:{onPrepareAiBrief?:(b
   const [inspectionType,setInspectionType]=useState<InspectionType>("level_1");
   const [componentDirty,setComponentDirty]=useState(false);
   const [confirmAiBrief,setConfirmAiBrief]=useState(false);
+  const [wordingFindingId,setWordingFindingId]=useState<string|null>(null),[wordingTone,setWordingTone]=useState<WordingTone>("standard"),[briefError,setBriefError]=useState("");
+  const briefPanel=useRef<HTMLElement>(null);
+  const wordingFinding=active?.findings.find(finding=>finding.id===wordingFindingId&&finding.system_id===active.systems[0]?.id);
+  useEffect(()=>{if(confirmAiBrief){briefPanel.current?.focus();briefPanel.current?.scrollIntoView({block:"center",behavior:"smooth"})}},[confirmAiBrief,wordingFindingId]);
+
+  function prepareConfirmedBrief(){
+    if(!active||!onPrepareAiBrief||componentDirty)return;
+    try{
+      const brief=wordingFindingId?buildFindingWordingBrief(active,wordingFindingId,wordingTone):buildInspectionAiBrief(active);
+      if(!brief){setBriefError("No saved note is available for this component. Save a field note before requesting wording.");return}
+      if(onPrepareAiBrief(brief)){setConfirmAiBrief(false);setBriefError("");setStatus("Inspection question prepared in chat. Review the saved notes and press Send when ready.")}
+      else setBriefError("The chat could not be replaced yet. Wait for current photo preparation or the AI response, then try again.");
+    }catch(error){setBriefError(error instanceof Error?error.message:"The wording question could not be prepared. Your saved finding is unchanged.")}
+  }
 
   useEffect(()=>{
     const existing=loadInspections().find(item=>item.status==="draft"||item.status==="in_progress"||item.status==="ready_for_review");
@@ -75,13 +90,15 @@ export default function InspectionSetup({onPrepareAiBrief}:{onPrepareAiBrief?:(b
       <div className="inspectionSetupActions"><span role="status" aria-live="polite">{componentDirty?"Save the current component note and status before changing inspection setup.":status}</span><button type="submit" disabled={componentDirty}>{active?"Save setup":"Start inspection"}</button></div>
       <p>Browser-first draft. AI assists; the technician controls observations, findings, and final conclusions.</p>
     </form>
-    {active?<InspectionRunner key={`${active.systems[0]?.id}:${active.systems[0]?.system_type}:${active.inspection_type}`} inspection={active} onChange={setActive} onDirtyChange={setComponentDirty}/>:null}
+    {active?<InspectionRunner key={`${active.systems[0]?.id}:${active.systems[0]?.system_type}:${active.inspection_type}`} inspection={active} onChange={setActive} onDirtyChange={setComponentDirty} onPrepareWording={onPrepareAiBrief?findingId=>{setWordingFindingId(findingId);setWordingTone("standard");setBriefError("");setConfirmAiBrief(true)}:undefined}/>:null}
     {active&&onPrepareAiBrief?<div className="inspectionSetupBody">
       <p>Use this system’s saved setup, notes, and photo gaps to prepare a question. Review it before sending; photos are not attached automatically. Save edits first.</p>
-      {confirmAiBrief?<section aria-label="Confirm inspection question">
+      {confirmAiBrief?<section aria-label="Confirm inspection question" ref={briefPanel} tabIndex={-1}>
+        {wordingFindingId?<div><h3>Draft wording — technician review required</h3><label className="inspectionNote">Original saved note<textarea readOnly rows={3} value={wordingFinding?.raw_note||""}/></label><div className="inspectionSetupGrid"><label>Wording tone<select value={wordingTone} onChange={event=>{const tone=WORDING_TONES.find(value=>value===event.target.value);if(tone)setWordingTone(tone)}}><option value="concise">Concise</option><option value="standard">Standard</option><option value="detailed">Detailed</option></select></label></div><p>Only this saved note and component status will be used. Photos are not included. Suggestions remain in chat for review; they do not replace or approve the saved finding.</p></div>:null}
         <p>This replaces the current chat, active attachments, Source Desk, manual context, and source manifest to avoid mixing jobs. Save the current Pro case and persist original photos you need first. Saved cases, inspections, and vault originals stay intact. Nothing is sent until you press Send.</p>
-        <div className="inspectionSetupActions"><button type="button" onClick={()=>setConfirmAiBrief(false)}>Keep current chat</button><button type="button" disabled={componentDirty} onClick={()=>{const brief=buildInspectionAiBrief(active);if(brief&&onPrepareAiBrief(brief)){setConfirmAiBrief(false);setStatus("Inspection question prepared in chat. Review the saved notes and press Send when ready.")}}}>Replace chat with inspection question</button></div>
-      </section>:<div className="inspectionSetupActions"><button type="button" disabled={componentDirty} onClick={()=>setConfirmAiBrief(true)}>Ask AI what to check next</button></div>}
+        <p role="status">{briefError}</p>
+        <div className="inspectionSetupActions"><button type="button" onClick={()=>setConfirmAiBrief(false)}>Keep current chat</button><button type="button" disabled={componentDirty} onClick={prepareConfirmedBrief}>Replace chat with inspection question</button></div>
+      </section>:<div className="inspectionSetupActions"><button type="button" disabled={componentDirty} onClick={()=>{setWordingFindingId(null);setBriefError("");setConfirmAiBrief(true)}}>Ask AI what to check next</button></div>}
     </div>:null}
   </details>;
 }

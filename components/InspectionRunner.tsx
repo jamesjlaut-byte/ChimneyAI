@@ -12,7 +12,7 @@ const STATUS_OPTIONS:ReadonlyArray<{value:FindingStatus;label:string}>=[
   {value:"further_evaluation_recommended",label:"Further evaluation recommended"},{value:"unable_to_inspect",label:"Unable to inspect"},{value:"not_applicable",label:"Not applicable"}
 ];
 
-export default function InspectionRunner({inspection,onChange,onDirtyChange}:{inspection:Inspection;onChange:(inspection:Inspection)=>void;onDirtyChange?:(dirty:boolean)=>void}){
+export default function InspectionRunner({inspection,onChange,onDirtyChange,onPrepareWording}:{inspection:Inspection;onChange:(inspection:Inspection)=>void;onDirtyChange?:(dirty:boolean)=>void;onPrepareWording?:(findingId:string)=>void}){
   const system=inspection.systems[0];
   const componentHeading=useRef<HTMLHeadingElement>(null),focusComponent=useRef(false);
   const checklist=useMemo(()=>system?getInspectionChecklist(system.system_type,inspection.inspection_type):[],[system,inspection.inspection_type]);
@@ -116,10 +116,11 @@ export default function InspectionRunner({inspection,onChange,onDirtyChange}:{in
       <p>Notes and status selections can recover after a reload in this tab. They remain unsaved drafts until you press Save; closing the tab or clearing browser data may remove them.</p>
       <div className="inspectionRunnerActions"><button type="button" disabled={step===0} onClick={()=>goToStep(step-1)}>Previous</button><span role="status" aria-live="polite">{hasUnsavedChanges?"Unsaved changes — save this component before leaving. ":""}{message}</span><button type="submit" disabled={!findingStatus}>{step===checklist.length-1?"Save component":"Save & next"}</button></div>
     </form>
+    {onPrepareWording?<div className="inspectionSetupActions"><span>Draft wording uses only this component’s saved note. Your original finding stays unchanged.</span><button type="button" disabled={hasUnsavedChanges||!existing?.raw_note.trim()} onClick={()=>{if(existing)onPrepareWording(existing.id)}}>Draft report wording</button></div>:null}
     <InspectionPhotoCapture inspection={inspection} finding={existing} component={current.id} label={current.label} onChange={onChange}/>
     <div className={`inspectionPhotoCoverage ${photoGaps.length||missing.length?"needsPhotos":"covered"}`}><b>{photoGaps.length?`${photoGaps.length} recommended photo${photoGaps.length===1?"":"s"} missing`:missing.length?"Photo review in progress":"No recommended photo gaps in documented components"}</b><span>{photoGaps.length?photoGaps.slice(0,3).map(item=>item.label).join(" · ")+(photoGaps.length>3?` · +${photoGaps.length-3} more`:""):missing.length?"Save the remaining component statuses to finish checking photo recommendations.":"Photo-optional, inaccessible, and not-applicable components are excluded."} Recommended photos are a quality-control prompt, not proof that an area was accessible or a condition exists.</span></div>
     {photoGaps.length?<button className="inspectionPhotoReview" type="button" onClick={reviewNextPhoto} disabled={hasUnsavedChanges}>Review next missing photo: {photoGaps[0].label}</button>:null}
     <section className={`inspectionCompletion ${missing.length?"incomplete":"complete"}`} aria-labelledby="inspection-completion-title"><div><small>Completion review</small><b id="inspection-completion-title">{missing.length?`${missing.length} component${missing.length===1?"":"s"} still undocumented`:inspection.status==="ready_for_review"?"Ready for technician review":"All components documented"}</b><span>{missing.length?missing.slice(0,3).map(item=>item.label).join(" · ")+(missing.length>3?` · +${missing.length-3} more`:""):"This means the checklist is complete—not that the system is safe or compliant."}</span></div><button type="button" onClick={markReadyForReview} disabled={Boolean(missing.length)||hasUnsavedChanges||inspection.status!=="in_progress"}>{inspection.status==="ready_for_review"?"Ready for review":"Mark ready for review"}</button></section>
-    <p>AI can assist with wording later. The technician remains responsible for every status and observation.</p>
+    <p>AI wording is a draft, not an approved finding. The technician remains responsible for every status and observation.</p>
   </section>;
 }

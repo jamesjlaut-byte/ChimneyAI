@@ -21,3 +21,15 @@ Excluded: customer/address/contact fields, technician identity, unsaved edits, A
 ## Technician acceptance check
 
 Use a test inspection. Save a note/status, prepare the question, cancel once to confirm existing chat survives, then prepare and confirm. Inspect the question: no other job's history/files/manual context should remain. Attach relevant photos deliberately, then Send. Confirm the response identifies real saved gaps without treating unseen photos as analyzed evidence or declaring compliance. Repeat on a physical phone; this workflow has not yet passed physical-iPhone acceptance.
+
+## Single-component report wording
+
+After saving a component note, use **Draft report wording** on that component. Choose Concise, Standard, or Detailed in the confirmation panel, which displays the original saved note. Preparing a wording question uses the same explicit chat-replacement confirmation and never sends automatically.
+
+The wording request includes the complete raw note, technician-selected status, component label, inspection type, and system type. It excludes other findings, AI suggestions, contact/address fields, and photos. It never modifies the original finding, review state, recommendation, or report. The result is a chat draft for technician review, not an approved finding or a generated PDF report. A separate structured approval/export workflow remains future work.
+
+Unsaved edits and empty saved notes disable the action. Missing/out-of-scope findings are rejected. If JSON escaping makes the full note too long for the chat limit, preparation fails with an explanation rather than silently removing facts. Notes may still contain private information; inspect them before sending.
+
+Regression coverage checks all three tones, preservation of the full note and status, no input mutation, no cross-system leakage, invalid/empty/stale selections, request-schema acceptance, and oversized-note refusal. Live fictional wording cases can be run with `CHIMNEYAI_EVAL_URL=https://chimneyai.verifysweep.com node scripts/check-finding-wording.mjs`; examine the answers for preserved negation, uncertainty, and ambiguous distance, not merely HTTP success.
+
+Local verification: 107 tests, lint, and production build passed. Browser checks confirmed that empty and unsaved notes disable wording, Cancel preserves existing chat, and Confirm with Concise prepares a 1,779-character fictional request without sending or changing the original note. The composer received focus. At 390 × 844, content width matched viewport width and the review controls rendered without overflow; no console warnings/errors were captured. Physical-phone and professional field acceptance remain outstanding.
